@@ -42,9 +42,9 @@ declare interface PlaybackState {
     get isPlaying(): boolean;
     get position(): number;
     get duration(): number;
-    get artist(): string;
-    get title(): string;
-    get album(): string;
+    get artist(): string | null;
+    get title(): string | null;
+    get album(): string | null;
 }
 
 declare interface Watches {
