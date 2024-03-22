@@ -34,8 +34,8 @@ import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
-import net.pipe01.pinepartner.scripting.Event
 import net.pipe01.pinepartner.scripting.EventSeverity
+import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.scripting.downloadPlugin
 import net.pipe01.pinepartner.service.Action
@@ -53,7 +53,7 @@ fun PluginPage(
     val coroutineScope = rememberCoroutineScope()
 
     var plugin by remember { mutableStateOf<Plugin?>(null) }
-    val events = remember { mutableStateListOf<Event>() }
+    val events = remember { mutableStateListOf<LogEvent>() }
 
     LaunchedEffect(id) {
         plugin = BuiltInPlugins.get(id) ?: pluginDao.getById(id) ?: throw IllegalArgumentException("Plugin not found")
@@ -64,7 +64,7 @@ fun PluginPage(
                 putLong("afterTime", events.lastOrNull()?.time?.toEpochSecond(ZoneOffset.UTC) ?: 0)
             }
 
-            val newEvents = resp?.getParcelableList<Event>("data") ?: emptyList()
+            val newEvents = resp?.getParcelableList<LogEvent>("data") ?: emptyList()
             events.addAll(newEvents)
 
             delay(1000)
@@ -111,7 +111,7 @@ fun PluginPage(
 @Composable
 private fun Plugin(
     plugin: Plugin,
-    events: List<Event>,
+    events: List<LogEvent>,
     onRemove: () -> Unit = { },
     onUpdate: () -> Unit = { },
 ) {

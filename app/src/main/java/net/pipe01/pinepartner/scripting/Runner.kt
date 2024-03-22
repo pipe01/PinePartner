@@ -1,13 +1,11 @@
 package net.pipe01.pinepartner.scripting
 
 
-import android.os.Parcelable
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.newSingleThreadContext
-import kotlinx.parcelize.Parcelize
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.api.Finalizeable
@@ -36,21 +34,6 @@ data class ScriptDependencies(
     val deviceManager: DeviceManager,
 )
 
-enum class EventSeverity {
-    INFO,
-    WARN,
-    ERROR,
-    FATAL,
-}
-
-@Parcelize
-data class Event(
-    val index: Int,
-    val severity: EventSeverity,
-    val message: String,
-    val time: LocalDateTime,
-) : Parcelable
-
 class Runner(val plugin: Plugin, deps: ScriptDependencies) {
     private lateinit var script: org.mozilla.javascript.Script
     private lateinit var scope: ScriptableObject
@@ -65,7 +48,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
     private val _hasStarted = AtomicBoolean(false)
 
     private var eventCounter = AtomicInteger()
-    private val _events = mutableListOf<Event>()
+    private val _events = mutableListOf<LogEvent>()
     val events get() = _events.toList()
 
     init {
@@ -120,10 +103,11 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
         //TODO: Limit number of events stored
         //TODO: Maybe lock this whole thing to ensure the _events list is ordered correctly
         _events.add(
-            Event(
+            LogEvent(
                 index = eventCounter.getAndIncrement(),
                 severity = severity,
                 message = message,
+                stackTrace = null,
                 time = LocalDateTime.now(),
             )
         )
