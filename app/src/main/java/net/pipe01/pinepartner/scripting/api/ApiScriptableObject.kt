@@ -11,6 +11,7 @@ import net.pipe01.pinepartner.utils.Event
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Function
+import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.ScriptableObject
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -73,7 +74,7 @@ abstract class ApiScriptableObject(private val className: String) : ScriptableOb
             contextFactory.call { context ->
                 val args = argsFn?.invoke() ?: emptyArray()
 
-                fn.call(context, getTopLevelScope(this@ApiScriptableObject), null, args)
+                ScriptRuntime.doTopCall(fn, context, getTopLevelScope(this@ApiScriptableObject), null, args, context.isStrictMode)
             }
         }
     }
