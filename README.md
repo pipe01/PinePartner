@@ -2,6 +2,8 @@
 
 A companion app for smartwatches running the [InfiniTime](https://github.com/InfiniTimeOrg/InfiniTime) firmware. Please read the [known issues](#known-issues-read-before-using) before using this app.
 
+## Screenshots
+
 ![](https://raw.githubusercontent.com/pipe01/PinePartner/master/screenshots/devices.png) ![](https://raw.githubusercontent.com/pipe01/PinePartner/master/screenshots/plugins.png)
 
 ## Known issues (read before using!)
