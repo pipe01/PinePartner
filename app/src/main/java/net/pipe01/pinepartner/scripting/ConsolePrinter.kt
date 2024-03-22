@@ -5,7 +5,7 @@ import org.mozilla.javascript.NativeConsole
 import org.mozilla.javascript.ScriptStackElement
 import org.mozilla.javascript.Scriptable
 
-class ConsolePrinter(private val onNewEvent: (EventSeverity, String) -> Unit) : NativeConsole.ConsolePrinter {
+class ConsolePrinter(private val onNewEvent: OnLogEvent) : NativeConsole.ConsolePrinter {
     override fun print(cx: Context?, scope: Scriptable?, level: NativeConsole.Level?, args: Array<out Any>?, stack: Array<out ScriptStackElement>?) {
         onNewEvent(
             when (level) {
@@ -13,7 +13,8 @@ class ConsolePrinter(private val onNewEvent: (EventSeverity, String) -> Unit) : 
                 NativeConsole.Level.WARN -> EventSeverity.WARN
                 else -> EventSeverity.INFO
             },
-            args?.joinToString(" ") ?: ""
+            args?.joinToString(" ") ?: "",
+            stack?.map { StackTraceEntry(it.fileName, it.lineNumber, it.functionName) }
         )
     }
 }

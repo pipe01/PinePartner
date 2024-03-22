@@ -1,7 +1,7 @@
 package net.pipe01.pinepartner.scripting.api
 
 import kotlinx.coroutines.CoroutineDispatcher
-import net.pipe01.pinepartner.scripting.EventSeverity
+import net.pipe01.pinepartner.scripting.OnLogEvent
 import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.scripting.ScriptDependencies
 import org.mozilla.javascript.BaseFunction
@@ -15,7 +15,7 @@ class Require(
     private val permissions: Set<Permission>,
     private val contextFactory: ContextFactory,
     private val dispatcher: CoroutineDispatcher,
-    private val onEvent: (EventSeverity, String) -> Unit,
+    private val onEvent: OnLogEvent,
 ) : BaseFunction(), Finalizeable {
     private val createdInstances = mutableListOf<Finalizeable>()
 

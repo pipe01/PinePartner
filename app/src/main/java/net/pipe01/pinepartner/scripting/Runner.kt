@@ -99,7 +99,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
         }
     }
 
-    private fun addEvent(severity: EventSeverity, message: String) {
+    private fun addEvent(severity: EventSeverity, message: String, stackTrace: List<StackTraceEntry>?) {
         //TODO: Limit number of events stored
         //TODO: Maybe lock this whole thing to ensure the _events list is ordered correctly
         _events.add(
@@ -107,7 +107,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
                 index = eventCounter.getAndIncrement(),
                 severity = severity,
                 message = message,
-                stackTrace = null,
+                stackTrace = stackTrace,
                 time = LocalDateTime.now(),
             )
         )
@@ -122,7 +122,11 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
                     } catch (e: Exception) {
                         Log.e("Runner", "Script threw an exception", e)
 
-                        addEvent(EventSeverity.FATAL, "Script threw an exception: ${e.message}")
+                        addEvent(
+                            EventSeverity.FATAL,
+                            "Script threw an exception: ${e.message}",
+                            e.getLogEventStackTrace(),
+                        )
                     }
                 }
             }

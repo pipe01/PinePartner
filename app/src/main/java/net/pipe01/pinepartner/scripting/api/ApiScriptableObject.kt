@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.scripting.EventSeverity
+import net.pipe01.pinepartner.scripting.OnLogEvent
+import net.pipe01.pinepartner.scripting.getLogEventStackTrace
 import net.pipe01.pinepartner.utils.Event
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
@@ -19,7 +21,7 @@ interface Finalizeable {
 abstract class ApiScriptableObject(private val className: String) : ScriptableObject(), Finalizeable {
     private lateinit var contextFactory: ContextFactory
     private lateinit var dispatcher: CoroutineDispatcher
-    private lateinit var onEvent: (EventSeverity, String) -> Unit
+    private lateinit var onEvent: OnLogEvent
 
     private var isFinalized = AtomicBoolean(false)
 
@@ -28,7 +30,7 @@ abstract class ApiScriptableObject(private val className: String) : ScriptableOb
 
     override fun getClassName() = className
 
-    fun initSuper(contextFactory: ContextFactory, dispatcher: CoroutineDispatcher, onEvent: (EventSeverity, String) -> Unit) {
+    fun initSuper(contextFactory: ContextFactory, dispatcher: CoroutineDispatcher, onEvent: OnLogEvent) {
         this.contextFactory = contextFactory
         this.dispatcher = dispatcher
         this.onEvent = onEvent
@@ -85,7 +87,11 @@ abstract class ApiScriptableObject(private val className: String) : ScriptableOb
             } catch (e: Exception) {
                 e.printStackTrace()
 
-                onEvent(EventSeverity.ERROR, "Unhandled exception: ${e.message}")
+                onEvent(
+                    EventSeverity.ERROR,
+                    "Unhandled exception: ${e.message}",
+                    e.getLogEventStackTrace(),
+                )
             }
         }
     }

@@ -11,11 +11,30 @@ enum class EventSeverity {
     FATAL,
 }
 
+typealias OnLogEvent = (severity: EventSeverity, message: String, stackTrace: List<StackTraceEntry>?) -> Unit
+
+@Parcelize
+data class StackTraceEntry(
+    val fileName: String,
+    val lineNumber: Int,
+    val functionName: String,
+) : Parcelable
+
 @Parcelize
 data class LogEvent(
     val index: Int,
     val severity: EventSeverity,
     val message: String,
-    val stackTrace: List<String>?,
+    val stackTrace: List<StackTraceEntry>?,
     val time: LocalDateTime,
 ) : Parcelable
+
+fun Exception.getLogEventStackTrace(): List<StackTraceEntry> {
+    return stackTrace.map {
+        StackTraceEntry(
+            fileName = it.fileName ?: "Unknown",
+            lineNumber = it.lineNumber,
+            functionName = it.methodName,
+        )
+    }
+}
