@@ -15,6 +15,8 @@ import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
 import org.mozilla.javascript.typedarrays.NativeArrayBuffer
 import org.mozilla.javascript.typedarrays.NativeUint8Array
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class BLECharacteristicAdapter : ApiScriptableObject("BLECharacteristic") {
     private lateinit var characteristic: ClientBleGattCharacteristic
@@ -41,6 +43,8 @@ class BLECharacteristicAdapter : ApiScriptableObject("BLECharacteristic") {
             is NativeArrayBuffer -> DataByteArray(value.buffer)
             is NativeUint8Array -> DataByteArray(value.buffer.buffer)
             is String -> DataByteArray.from(value)
+            is Long -> DataByteArray(ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(value).array())
+            is Int -> DataByteArray(ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(value).array())
             else -> throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid value type"))
         }
 

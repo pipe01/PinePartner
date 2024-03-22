@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.media.session.MediaSessionManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -259,11 +260,19 @@ class BackgroundService : Service() {
 
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
+        val mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+
         BuiltInPlugins.init(assets)
 
         pluginManager = PluginManager(
             pluginDao = db.pluginDao(),
-            scriptDependencies = ScriptDependencies(db, notifManager, deviceManager, audioManager),
+            scriptDependencies = ScriptDependencies(
+                db,
+                notifManager,
+                deviceManager,
+                audioManager,
+                mediaSessionManager
+            ),
         )
 
         createNotificationChannel()

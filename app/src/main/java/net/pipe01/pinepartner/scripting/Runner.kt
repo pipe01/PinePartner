@@ -2,6 +2,7 @@ package net.pipe01.pinepartner.scripting
 
 
 import android.media.AudioManager
+import android.media.session.MediaSessionManager
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -11,6 +12,7 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.api.Finalizeable
 import net.pipe01.pinepartner.scripting.api.HTTP
+import net.pipe01.pinepartner.scripting.api.Media
 import net.pipe01.pinepartner.scripting.api.Notifications
 import net.pipe01.pinepartner.scripting.api.Require
 import net.pipe01.pinepartner.scripting.api.Volume
@@ -18,6 +20,7 @@ import net.pipe01.pinepartner.scripting.api.Watches
 import net.pipe01.pinepartner.scripting.api.adapters.BLECharacteristicAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.BLEServiceAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.NotificationAdapter
+import net.pipe01.pinepartner.scripting.api.adapters.PlaybackStateAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.VolumeStreamAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.WatchAdapter
 import net.pipe01.pinepartner.service.DeviceManager
@@ -37,6 +40,7 @@ data class ScriptDependencies(
     val notifManager: NotificationsManager,
     val deviceManager: DeviceManager,
     val audioManager: AudioManager,
+    val mediaSessionManager: MediaSessionManager,
 )
 
 class Runner(val plugin: Plugin, deps: ScriptDependencies) {
@@ -92,12 +96,14 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, Notifications::class.java)
             ScriptableObject.defineClass(scope, HTTP::class.java)
             ScriptableObject.defineClass(scope, Volume::class.java)
+            ScriptableObject.defineClass(scope, Media::class.java)
 
             ScriptableObject.defineClass(scope, WatchAdapter::class.java)
             ScriptableObject.defineClass(scope, NotificationAdapter::class.java)
             ScriptableObject.defineClass(scope, BLEServiceAdapter::class.java)
             ScriptableObject.defineClass(scope, BLECharacteristicAdapter::class.java)
             ScriptableObject.defineClass(scope, VolumeStreamAdapter::class.java)
+            ScriptableObject.defineClass(scope, PlaybackStateAdapter::class.java)
 
             ScriptableObject.putProperty(scope, "require", Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent))
 

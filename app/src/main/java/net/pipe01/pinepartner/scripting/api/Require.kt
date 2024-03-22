@@ -65,6 +65,14 @@ class Require(
                 }
             }
 
+            "media" -> {
+                checkPermission(cx, Permission.MEDIA_CONTROL)
+
+                createInstance<Media>(cx, scope) {
+                    init(deps.mediaSessionManager)
+                }
+            }
+
             else -> throw ScriptRuntime.throwError(cx, scope, "Unknown module $className")
         }
     }

@@ -1,6 +1,6 @@
 declare interface Watch {
     get address(): string;
-    get isConnected(): Boolean;
+    get isConnected(): boolean;
 
     sendNotification(title: string, body: string): void;
     setTime(time: Number | Date): void;
@@ -17,7 +17,7 @@ declare interface BLECharacteristic {
     read(): ArrayBuffer;
     readString(): string;
 
-    write(data: ArrayBuffer | Uint8Array | string): void;
+    write(data: ArrayBuffer | Uint8Array | string | number): void;
 
     addEventListener(event: "newValue", cb: (value: ArrayBuffer) => void): void;
     removeEventListener(event: "newValue", cb: (value: ArrayBuffer) => void): void;
@@ -35,7 +35,16 @@ declare interface Notification {
     get title(): string;
     get text(): string;
     get time(): any;
-    get isAllowed(): Boolean;
+    get isAllowed(): boolean;
+}
+
+declare interface PlaybackState {
+    get isPlaying(): boolean;
+    get position(): number;
+    get duration(): number;
+    get artist(): string;
+    get title(): string;
+    get album(): string;
 }
 
 declare interface Watches {
@@ -74,7 +83,17 @@ declare interface Volume {
     get accessibilityStream(): VolumeStream;
 }
 
+declare interface Media {
+    get state(): PlaybackState;
+
+    play(): void;
+    pause(): void;
+    next(): void;
+    previous(): void;
+}
+
 declare function require(module: "watches"): Watches;
 declare function require(module: "notifications"): Notifications;
 declare function require(module: "http"): HTTP;
 declare function require(module: "volume"): Volume;
+declare function require(module: "media"): Media;
