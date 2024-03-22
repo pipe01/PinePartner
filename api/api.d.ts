@@ -18,6 +18,9 @@ declare interface BLECharacteristic {
     readString(): string;
 
     write(data: ArrayBuffer | Uint8Array | string): void;
+
+    addEventListener(event: "newValue", cb: (value: ArrayBuffer) => void): void;
+    removeEventListener(event: "newValue", cb: (value: ArrayBuffer) => void): void;
 }
 
 declare interface Notification {
