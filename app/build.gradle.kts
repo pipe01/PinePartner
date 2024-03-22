@@ -91,6 +91,7 @@ dependencies {
 
     implementation("no.nordicsemi.android.kotlin.ble:scanner:1.0.14")
     implementation("no.nordicsemi.android.kotlin.ble:client:1.0.14")
+    implementation("com.google.accompanist:accompanist-permissions:0.35.0-alpha")
 
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")

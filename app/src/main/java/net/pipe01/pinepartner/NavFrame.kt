@@ -1,5 +1,10 @@
 package net.pipe01.pinepartner
 
+import android.Manifest.permission.ACCESS_FINE_LOCATION
+import android.Manifest.permission.BLUETOOTH_CONNECT
+import android.Manifest.permission.BLUETOOTH_SCAN
+import android.Manifest.permission.POST_NOTIFICATIONS
+import android.os.Build
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -13,6 +18,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -27,6 +33,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navigation
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.pages.devices.AddDevicePage
 import net.pipe01.pinepartner.pages.devices.DevicePage
@@ -70,6 +78,36 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.getRouteTransitionDirectio
         AnimatedContentTransitionScope.SlideDirection.Left
     else
         AnimatedContentTransitionScope.SlideDirection.Right
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun PermissionsFrame(content: @Composable () -> Unit) {
+    val permissions = mutableListOf(
+        ACCESS_FINE_LOCATION,
+    )
+
+    if (Build.VERSION.SDK_INT >= 33) {
+        permissions.add(POST_NOTIFICATIONS)
+    }
+    if (Build.VERSION.SDK_INT >= 31) {
+        permissions.add(BLUETOOTH_CONNECT)
+        permissions.add(BLUETOOTH_SCAN)
+    }
+
+    val state = rememberMultiplePermissionsState(permissions = permissions)
+
+    LaunchedEffect(Unit) {
+        if (!state.allPermissionsGranted) {
+            state.launchMultiplePermissionRequest()
+        }
+    }
+
+    if (state.allPermissionsGranted) {
+        content()
+    } else {
+        Text(text = "Please grant all permissions")
+    }
 }
 
 @Composable
