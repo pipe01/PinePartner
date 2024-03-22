@@ -23,6 +23,12 @@ declare interface BLECharacteristic {
     removeEventListener(event: "newValue", cb: (value: ArrayBuffer) => void): void;
 }
 
+declare interface VolumeStream {
+    volume: number;
+
+    adjustVolume(direction: -1 | 0 | 1): void;
+}
+
 declare interface Notification {
     get packageName(): string;
     get appLabel(): string;
@@ -58,6 +64,17 @@ declare interface HTTP {
     request(method: HTTPMethod, url: string, options: HTTPOptions, cb: (response: string) => void): void;
 }
 
+declare interface Volume {
+    get voiceCallStream(): VolumeStream;
+    get systemStream(): VolumeStream;
+    get ringStream(): VolumeStream;
+    get musicStream(): VolumeStream;
+    get alarmStream(): VolumeStream;
+    get notificationStream(): VolumeStream;
+    get accessibilityStream(): VolumeStream;
+}
+
 declare function require(module: "watches"): Watches;
 declare function require(module: "notifications"): Notifications;
 declare function require(module: "http"): HTTP;
+declare function require(module: "volume"): Volume;

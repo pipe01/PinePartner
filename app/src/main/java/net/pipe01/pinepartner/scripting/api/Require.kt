@@ -23,6 +23,12 @@ class Require(
         createdInstances.forEach { it.finalize() }
     }
 
+    private fun checkPermission(cx: Context, permission: Permission) {
+        if (!permissions.contains(permission)) {
+            throw ScriptRuntime.throwError(cx, this, "Permission $permission is needed")
+        }
+    }
+
     override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable?, args: Array<out Any>?): Any {
         if (args == null || args.size != 1) {
             throw ScriptRuntime.throwError(cx, scope, "require() needs one argument")
@@ -38,9 +44,7 @@ class Require(
             }
 
             "notifications" -> {
-                if (!permissions.contains(Permission.RECEIVE_NOTIFICATIONS)) {
-                    throw ScriptRuntime.throwError(cx, scope, "Permission RECEIVE_NOTIFICATIONS is needed")
-                }
+                checkPermission(cx, Permission.RECEIVE_NOTIFICATIONS)
 
                 createInstance<Notifications>(cx, scope) {
                     init(deps.notifManager)
@@ -48,11 +52,17 @@ class Require(
             }
 
             "http" -> {
-                if (!permissions.contains(Permission.HTTP)) {
-                    throw ScriptRuntime.throwError(cx, scope, "Permission HTTP is needed")
-                }
+                checkPermission(cx, Permission.HTTP)
 
                 createInstance<HTTP>(cx, scope) { }
+            }
+
+            "volume" -> {
+                checkPermission(cx, Permission.VOLUME_CONTROL)
+
+                createInstance<Volume>(cx, scope) {
+                    init(deps.audioManager)
+                }
             }
 
             else -> throw ScriptRuntime.throwError(cx, scope, "Unknown module $className")
