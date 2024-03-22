@@ -1,9 +1,6 @@
 package net.pipe01.pinepartner.scripting.api.adapters
 
-import android.annotation.SuppressLint
-import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.scripting.api.ApiScriptableObject
-import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattService
 import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
@@ -19,16 +16,13 @@ class BLEServiceAdapter : ApiScriptableObject("BLEService") {
     @JSGetter
     fun getUuid() = service.uuid.toString()
 
-    @SuppressLint("MissingPermission")
     @JSFunction
-    fun writeCharacteristic(characteristicUuid: String, value: String): Boolean {
-        val uuid = UUID.fromString(characteristicUuid)
-        val characteristic = service.findCharacteristic(uuid) ?: return false
+    fun getCharacteristic(uuidStr: String): BLECharacteristicAdapter? {
+        val uuid = UUID.fromString(uuidStr)
+        val characteristic = service.findCharacteristic(uuid) ?: return null
 
-        runBlocking {
-            characteristic.write(DataByteArray.from(value))
+        return newObject("BLECharacteristic") {
+            init(characteristic)
         }
-
-        return true
     }
 }

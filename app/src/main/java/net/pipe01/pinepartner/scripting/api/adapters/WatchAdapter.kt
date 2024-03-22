@@ -58,10 +58,10 @@ class WatchAdapter : ApiScriptableObject("Watch") {
     }
 
     @JSFunction
-    fun getService(uuid: String): Any? {
+    fun getService(uuid: String): BLEServiceAdapter? {
         val service = device.getBLEService(UUID.fromString(uuid)) ?: return null
 
-        return newObject<BLEServiceAdapter>("BLEService") {
+        return newObject("BLEService") {
             init(service)
         }
     }

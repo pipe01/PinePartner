@@ -13,6 +13,7 @@ import net.pipe01.pinepartner.scripting.api.HTTP
 import net.pipe01.pinepartner.scripting.api.Notifications
 import net.pipe01.pinepartner.scripting.api.Require
 import net.pipe01.pinepartner.scripting.api.Watches
+import net.pipe01.pinepartner.scripting.api.adapters.BLECharacteristicAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.BLEServiceAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.NotificationAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.WatchAdapter
@@ -90,6 +91,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, WatchAdapter::class.java)
             ScriptableObject.defineClass(scope, NotificationAdapter::class.java)
             ScriptableObject.defineClass(scope, BLEServiceAdapter::class.java)
+            ScriptableObject.defineClass(scope, BLECharacteristicAdapter::class.java)
 
             ScriptableObject.putProperty(scope, "require", Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent))
 

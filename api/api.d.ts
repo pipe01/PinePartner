@@ -4,7 +4,20 @@ declare interface Watch {
 
     sendNotification(title: string, body: string): void;
     setTime(time: Number | Date): void;
-    getService(uuid: string): any;
+    getService(uuid: string): BLEService | null;
+}
+
+declare interface BLEService {
+    get uuid(): String;
+
+    getCharacteristic(characteristicUUID: string): BLECharacteristic | null;
+}
+
+declare interface BLECharacteristic {
+    read(): ArrayBuffer;
+    readString(): string;
+
+    write(data: ArrayBuffer | Uint8Array | string): void;
 }
 
 declare interface Notification {
