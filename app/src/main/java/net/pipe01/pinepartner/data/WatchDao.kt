@@ -20,12 +20,6 @@ interface WatchDao {
     @Query("DELETE FROM watch WHERE address = :address")
     suspend fun delete(address: String)
 
-    @Query("SELECT sendNotifications FROM watch WHERE address = :address")
-    suspend fun getSendNotifications(address: String): Boolean
-
     @Query("UPDATE watch SET autoConnect = :autoConnect WHERE address = :address")
     suspend fun setAutoConnect(address: String, autoConnect: Boolean)
-
-    @Query("UPDATE watch SET sendNotifications = :sendNotifications WHERE address = :address")
-    suspend fun setSendNotifications(address: String, sendNotifications: Boolean)
 }

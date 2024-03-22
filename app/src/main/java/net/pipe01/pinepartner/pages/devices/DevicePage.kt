@@ -35,8 +35,6 @@ fun DevicePage(db: AppDatabase, deviceAddress: String) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    var isConnected by remember { mutableStateOf(false) }
-
     var watch by remember { mutableStateOf<Watch?>(null) }
     var state by remember { mutableStateOf<WatchState?>(null) }
 
@@ -84,18 +82,6 @@ fun DevicePage(db: AppDatabase, deviceAddress: String) {
 
                     coroutineScope.launch {
                         db.watchDao().setAutoConnect(deviceAddress, it)
-                    }
-                }
-            )
-
-            Setting(
-                name = "Send notifications",
-                value = watch!!.sendNotifications,
-                onValueChange = {
-                    watch = watch!!.copy(sendNotifications = it)
-
-                    coroutineScope.launch {
-                        db.watchDao().setSendNotifications(deviceAddress, it)
                     }
                 }
             )
