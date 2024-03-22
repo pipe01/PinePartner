@@ -16,3 +16,5 @@ A companion app for smartwatches running the [InfiniTime](https://github.com/Inf
 * The app is missing an icon, so please shoot any ideas my way.
 
 I recommend not running multiple companion apps at the same time since they will probably interfere with each other.
+
+Download the latest release [here](https://github.com/pipe01/PinePartner/releases/download/v0.0.1/PinePartner-0.0.1.apk).
