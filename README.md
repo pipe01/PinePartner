@@ -13,5 +13,6 @@ A companion app for smartwatches running the [InfiniTime](https://github.com/Inf
 * Some parts of the UI are still very barebones.
 * There's a lot of functionality missing but feel free to make feature requests if you feel like anything important has been left out.
 * The app has only been tested on a PineTime running the latest InfiniTime version.
+* The app is missing an icon, so please shoot any ideas my way.
 
 I recommend not running multiple companion apps at the same time since they will probably interfere with each other.
