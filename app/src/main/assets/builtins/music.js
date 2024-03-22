@@ -26,19 +26,23 @@ function onWatchConnected(watch) {
 	const position = musicService.getCharacteristic("00000006-78fc-48fe-8e23-433b3a1942d0");
 	const totalLength = musicService.getCharacteristic("00000007-78fc-48fe-8e23-433b3a1942d0");
 
+	function sendState() {
+        const state = media.state;
+
+        status.write(isPlayingData(state.isPlaying));
+        artist.write(state.artist || "");
+        track.write(state.title || "");
+        album.write(state.album || "");
+        position.write(state.position);
+        totalLength.write(state.duration);
+    }
+
 	events.addEventListener("newValue", val => {
 		const arr = new Uint8Array(val);
 
 		switch (arr[0]) {
 			case 0xE0: // App opened
-				const state = media.state;
-
-				status.write(isPlayingData(state.isPlaying));
-				artist.write(state.artist || "");
-				track.write(state.title || "");
-				album.write(state.album || "");
-				position.write(state.position);
-				totalLength.write(state.duration);
+                sendState();
 				break;
 
 			case 0x00:
@@ -51,6 +55,16 @@ function onWatchConnected(watch) {
 				console.log("Pause");
 				media.pause();
 				status.write(isPlayingData(false));
+				break;
+
+			case 0x03:
+				console.log("Next");
+				media.next();
+				break;
+
+			case 0x04:
+				console.log("Previous");
+				media.previous();
 				break;
 
 			case 0x05:
