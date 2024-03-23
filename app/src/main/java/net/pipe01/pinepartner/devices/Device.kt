@@ -4,13 +4,23 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.callback.ClientBleGatt
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattServices
+import no.nordicsemi.android.kotlin.ble.core.data.BleWriteType
+import no.nordicsemi.android.kotlin.ble.core.errors.GattOperationException
+import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.time.LocalDateTime
 import java.util.UUID
+import java.util.zip.ZipInputStream
 
 @SuppressLint("MissingPermission")
 class Device private constructor(val address: String, private val client: ClientBleGatt, private val services: ClientBleGattServices) {
@@ -92,7 +102,7 @@ class Device private constructor(val address: String, private val client: Client
             time.year.shr(8).toByte(),
             time.monthValue.toByte(),
             time.dayOfMonth.toByte(),
-            (time.hour ).toByte(),
+            (time.hour).toByte(),
             time.minute.toByte(),
             time.second.toByte(),
             0,
@@ -104,4 +114,127 @@ class Device private constructor(val address: String, private val client: Client
     }
 
     fun getBLEService(uuid: UUID) = services.findService(uuid)
+
+    suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope) {
+        val files = mutableMapOf<String, ByteArray>()
+
+        ZipInputStream(dfuFile).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+
+                files[entry.name] = zip.readBytes()
+            }
+        }
+
+        val manifestJson = files["manifest.json"]?.decodeToString() ?: throw IllegalArgumentException("No manifest.json found")
+        val manifest = Json.decodeFromString<DFUManifest>(manifestJson)
+
+        var binFile = files[manifest.manifest.application.bin_file] ?: throw IllegalArgumentException("No bin file found")
+        val datFile = files[manifest.manifest.application.dat_file] ?: throw IllegalArgumentException("No dat file found")
+
+//        binFile = binFile.sliceArray(0 until 3010)
+
+        val packet = InfiniTime.DFUService.PACKET.bind(services)
+        val controlPoint = InfiniTime.DFUService.CONTROL_POINT.bind(services)
+
+        val controlChannel = Channel<ByteArray>()
+        val controlJob = coroutineScope.launch {
+            controlPoint.getNotifications()
+                .collect { controlChannel.send(it.value) }
+        }
+
+        suspend fun expectReceive(vararg expect: Byte) {
+            val response = controlChannel.receive()
+            if (!response.contentEquals(expect)) {
+                val got = response.joinToString(":") { "%02x".format(it) }
+                val expected = expect.joinToString(":") { "%02x".format(it) }
+
+                throw IllegalArgumentException(
+                    "Invalid response ${got}, expected ${expected}")
+            }
+        }
+
+        val TAG = "DFU"
+
+        Log.i(TAG, "Step 1")
+        controlPoint.write(DataByteArray(byteArrayOf(0x01, 0x04)))
+
+        Log.i(TAG, "Step 2")
+        packet.write(
+            DataByteArray(
+                ByteBuffer
+                    .allocate(12)
+                    .order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(0)
+                    .putInt(0)
+                    .putInt(binFile.size)
+                    .array()
+            ),
+            BleWriteType.NO_RESPONSE
+        )
+
+        Log.i(TAG, "Step 3")
+        expectReceive(0x10, 0x01, 0x01)
+
+        Log.i(TAG, "Step 3.1")
+        controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x00)))
+
+        Log.i(TAG, "Step 4")
+        packet.write(DataByteArray(datFile), BleWriteType.NO_RESPONSE)
+
+        Log.i(TAG, "Step 4.1")
+        controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x01)))
+
+        Log.i(TAG, "Step 5")
+        expectReceive(0x10, 0x02, 0x01)
+
+        val receiptInterval = 10
+
+        Log.i(TAG, "Step 5.1")
+        controlPoint.write(DataByteArray(byteArrayOf(0x08, receiptInterval.toByte())))
+
+        Log.i(TAG, "Step 6")
+        controlPoint.write(DataByteArray(byteArrayOf(0x03)))
+
+        Log.i(TAG, "Step 7")
+
+        var sentChunks = 0
+
+        for (i in binFile.indices step 20) {
+            if (i % 1000 == 0) {
+                Log.d(TAG, "Offset $i of ${binFile.size}")
+            }
+
+            val until = if (i + 20 > binFile.size) binFile.size else i + 20
+
+            val chunk = binFile.sliceArray(i until until)
+            packet.write(DataByteArray(chunk), BleWriteType.NO_RESPONSE)
+
+            sentChunks++
+
+            if (sentChunks % receiptInterval == 0) {
+                val expected = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sentChunks * 20).array()
+
+                expectReceive(0x11, *expected)
+            }
+        }
+
+        Log.i(TAG, "Step 8")
+        expectReceive(0x10, 0x03, 0x01)
+
+        Log.i(TAG, "Step 8.1")
+        controlPoint.write(DataByteArray(byteArrayOf(0x04)))
+
+        Log.i(TAG, "Step 9")
+        expectReceive(0x10, 0x04, 0x01)
+
+        controlJob.cancel()
+
+        Log.i(TAG, "Step 9.1")
+        try {
+            controlPoint.write(DataByteArray(byteArrayOf(0x05)))
+        } catch (e: GattOperationException) {
+            // Expected
+        }
+    }
 }

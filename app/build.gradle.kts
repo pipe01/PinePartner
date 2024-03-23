@@ -4,6 +4,7 @@ plugins {
     id("kotlin-parcelize")
     id("com.google.devtools.ksp")
     id("io.sentry.android.gradle") version "4.3.1"
+    kotlin("plugin.serialization") version "1.9.23"
 }
 
 android {
@@ -82,6 +83,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1-Beta")
 

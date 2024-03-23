@@ -31,6 +31,13 @@ object InfiniTime {
         val FIRMWARE_REVISION = Characteristic(ID, "00002a26-0000-1000-8000-00805f9b34fb")
     }
 
+    object DFUService {
+        private val ID = "00001530-1212-efde-1523-785feabcd123"
+
+        val CONTROL_POINT = Characteristic(ID, "00001531-1212-efde-1523-785feabcd123")
+        val PACKET = Characteristic(ID, "00001532-1212-efde-1523-785feabcd123")
+    }
+
     object BatteryService {
         private val ID = "0000180F-0000-1000-8000-00805F9B34FB"
 

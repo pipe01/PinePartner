@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.session.MediaSessionManager
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -51,6 +52,8 @@ class BackgroundService : Service() {
     private val deviceManager = DeviceManager(this)
     private val notifManager = NotificationsManager()
     private lateinit var pluginManager: PluginManager
+
+    private var isStarted = false
 
     val notifReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -135,6 +138,12 @@ class BackgroundService : Service() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!isStarted) {
+            isStarted = true
+        } else {
+            return START_STICKY
+        }
+
         Log.i(TAG, "Service started")
 
         val filter = IntentFilter()
@@ -223,9 +232,20 @@ class BackgroundService : Service() {
             WatchState(false, "", 0f)
     }
 
-    fun isWatchConnected(address: String): Boolean {
-        val dev = deviceManager.get(address)
-        return dev?.isConnected ?: false
+    suspend fun flashWatchDFU(address: String, uri: Uri) {
+        Log.d(TAG, "Flashing watch $address with $uri")
+
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+
+        Log.d(TAG, "Device found")
+
+        contentResolver.openInputStream(uri)!!.use { stream ->
+            Log.d(TAG, "Flashing watch $address with stream")
+
+            CoroutineScope(Dispatchers.IO).launch {
+                device.flashDFU(stream, this)
+            }.join()
+        }
     }
 
     fun getPluginEvents(id: String, afterTime: Long): Array<LogEvent> {
