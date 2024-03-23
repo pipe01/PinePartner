@@ -39,6 +39,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.pipe01.pinepartner.components.Header
+import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.WatchState
@@ -56,57 +57,61 @@ fun DevicesPage(
     val coroutineScope = rememberCoroutineScope()
 
     val watches = remember { mutableStateListOf<Watch>() }
+    var isLoading by remember { mutableStateOf(true) }
+
+    Log.d("MainPage", "Loading watches...")
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            watches.addAll(db.watchDao().getAll())
+        watches.addAll(db.watchDao().getAll())
 
-            Log.d("MainPage", "Loaded watches: ${watches.size}")
-        }
+        isLoading = false
+        Log.d("MainPage", "Loaded watches: ${watches.size}")
     }
 
-    BoxWithFAB(fab = {
-        ExtendedFloatingActionButton(
-            modifier = it,
-            onClick = onAddDevice,
-            icon = { Icon(Icons.Filled.Add, "Add device") },
-            text = { Text(text = "Add new device") },
-        )
-    }) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-        ) {
-            Header(text = "Registered Devices")
+    LoadingStandIn(isLoading = isLoading) {
+        BoxWithFAB(fab = {
+            ExtendedFloatingActionButton(
+                modifier = it,
+                onClick = onAddDevice,
+                icon = { Icon(Icons.Filled.Add, "Add device") },
+                text = { Text(text = "Add new device") },
+            )
+        }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
+                Header(text = "Registered Devices")
 
-            if (watches.isEmpty()) {
-                Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .alpha(0.6f),
-                    text = "Press the button below to add a new device.",
-                    fontSize = 20.sp,
-                    textAlign = TextAlign.Center,
-                )
-            } else {
-                watches.forEach { watch ->
-                    DeviceItem(
-                        watch = watch,
-                        coroutineScope = coroutineScope,
-                        backgroundService = backgroundService,
-                        onClick = { onDeviceClick(watch.address) },
-                        onRemoveDevice = {
-                            coroutineScope.launch {
-                                withContext(Dispatchers.IO) {
-                                    db.watchDao().delete(watch.address)
-                                    watches.remove(watch)
-                                    TODO("Tell background service to remove the device")
-                                }
-                            }
-                        },
+                if (watches.isEmpty()) {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .alpha(0.6f),
+                        text = "Press the button below to add a new device.",
+                        fontSize = 20.sp,
+                        textAlign = TextAlign.Center,
                     )
+                } else {
+                    watches.forEach { watch ->
+                        DeviceItem(
+                            watch = watch,
+                            coroutineScope = coroutineScope,
+                            backgroundService = backgroundService,
+                            onClick = { onDeviceClick(watch.address) },
+                            onRemoveDevice = {
+                                coroutineScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        db.watchDao().delete(watch.address)
+                                        watches.remove(watch)
+                                        TODO("Tell background service to remove the device")
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
