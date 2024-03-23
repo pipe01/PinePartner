@@ -17,6 +17,7 @@ import net.pipe01.pinepartner.scripting.api.HTTPService
 import net.pipe01.pinepartner.scripting.api.LocationService
 import net.pipe01.pinepartner.scripting.api.MediaService
 import net.pipe01.pinepartner.scripting.api.NotificationsService
+import net.pipe01.pinepartner.scripting.api.Parameters
 import net.pipe01.pinepartner.scripting.api.Require
 import net.pipe01.pinepartner.scripting.api.VolumeService
 import net.pipe01.pinepartner.scripting.api.WatchesService
@@ -31,8 +32,6 @@ import net.pipe01.pinepartner.service.DeviceManager
 import net.pipe01.pinepartner.service.NotificationsManager
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
-import org.mozilla.javascript.ErrorReporter
-import org.mozilla.javascript.EvaluatorException
 import org.mozilla.javascript.NativeConsole
 import org.mozilla.javascript.ScriptableObject
 import java.time.LocalDateTime
@@ -70,20 +69,6 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             override fun contextCreated(cx: Context) {
                 cx.optimizationLevel = -1 // Disable code generation because Android doesn't support it
                 cx.languageVersion = Context.VERSION_ES6
-
-                cx.setErrorReporter(object : ErrorReporter {
-                    override fun warning(p0: String?, p1: String?, p2: Int, p3: String?, p4: Int) {
-                        TODO("Not yet implemented")
-                    }
-
-                    override fun error(p0: String?, p1: String?, p2: Int, p3: String?, p4: Int) {
-                        TODO("Not yet implemented")
-                    }
-
-                    override fun runtimeError(p0: String?, p1: String?, p2: Int, p3: String?, p4: Int): EvaluatorException {
-                        TODO("Not yet implemented")
-                    }
-                })
             }
 
             override fun contextReleased(cx: Context) {
@@ -112,6 +97,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, PlaybackStateAdapter::class.java)
             ScriptableObject.defineClass(scope, LocationAdapter::class.java)
 
+            ScriptableObject.putProperty(scope, "params", Parameters(scope, plugin.name, plugin.parameters, deps.db))
             ScriptableObject.putProperty(scope, "require", Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent))
 
             NativeConsole.init(scope, true, ConsolePrinter(::addEvent))

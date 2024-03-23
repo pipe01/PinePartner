@@ -111,3 +111,5 @@ declare function require(module: "http"): HTTPService;
 declare function require(module: "volume"): VolumeService;
 declare function require(module: "media"): MediaService;
 declare function require(module: "location"): LocationService;
+
+declare const params: Record<string, string>;

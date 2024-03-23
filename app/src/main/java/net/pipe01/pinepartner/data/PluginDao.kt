@@ -27,4 +27,13 @@ interface PluginDao {
 
     @Query("UPDATE Plugin SET enabled = :enabled WHERE id = :id")
     suspend fun setEnabled(id: String, enabled: Boolean)
+
+    @Query("SELECT * FROM parametervalue WHERE pluginId = :id")
+    suspend fun getParameterValues(id: String): List<ParameterValue>?
+
+    @Query("SELECT value FROM ParameterValue WHERE pluginId = :pluginId AND paramName = :paramName")
+    suspend fun getParameterValue(pluginId: String, paramName: String): String?
+
+    @Query("INSERT INTO ParameterValue (pluginId, paramName, value) VALUES (:pluginId, :paramName, :value) ON CONFLICT(pluginId, paramName) DO UPDATE SET value = :value")
+    suspend fun setParameterValue(pluginId: String, paramName: String, value: String)
 }

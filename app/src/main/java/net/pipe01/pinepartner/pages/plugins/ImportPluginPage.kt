@@ -222,6 +222,7 @@ private fun ImportStepPreview() {
                 sourceCode = "",
                 checksum = "",
                 permissions = Permission.entries.toSet(),
+                parameters = emptyList(),
                 downloadUrl = "",
                 enabled = false,
                 isBuiltIn = false,

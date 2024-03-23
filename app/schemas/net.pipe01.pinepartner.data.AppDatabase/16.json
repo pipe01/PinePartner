@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 13,
-    "identityHash": "18bb291464b45777c7b265b8330ec047",
+    "version": 16,
+    "identityHash": "d0ad1d3ddd199234aad119fa18cfdc47",
     "entities": [
       {
         "tableName": "Watch",
@@ -130,12 +130,45 @@
         },
         "indices": [],
         "foreignKeys": []
+      },
+      {
+        "tableName": "ParameterValue",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`pluginId` TEXT NOT NULL, `paramName` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`pluginId`, `paramName`))",
+        "fields": [
+          {
+            "fieldPath": "pluginId",
+            "columnName": "pluginId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "paramName",
+            "columnName": "paramName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "pluginId",
+            "paramName"
+          ]
+        },
+        "indices": [],
+        "foreignKeys": []
       }
     ],
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '18bb291464b45777c7b265b8330ec047')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd0ad1d3ddd199234aad119fa18cfdc47')"
     ]
   }
 }

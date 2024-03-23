@@ -200,6 +200,7 @@ private fun PluginItemPreview() {
                 sourceCode = "",
                 checksum = "",
                 permissions = emptySet(),
+                parameters = emptyList(),
                 downloadUrl = null,
                 enabled = i % 2 == 1,
                 isBuiltIn = i % 2 == 0,

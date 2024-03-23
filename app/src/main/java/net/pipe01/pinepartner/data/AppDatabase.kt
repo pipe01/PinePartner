@@ -11,8 +11,9 @@ import androidx.room.TypeConverters
         Watch::class,
         AllowedNotifApp::class,
         Plugin::class,
+        ParameterValue::class,
     ],
-    version = 13,
+    version = 16,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

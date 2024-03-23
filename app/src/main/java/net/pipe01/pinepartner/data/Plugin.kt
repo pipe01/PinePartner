@@ -3,6 +3,7 @@ package net.pipe01.pinepartner.data
 import androidx.room.Entity
 import androidx.room.Ignore
 import androidx.room.PrimaryKey
+import net.pipe01.pinepartner.scripting.Parameter
 import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.utils.md5
 import java.util.Scanner
@@ -18,6 +19,7 @@ data class Plugin @JvmOverloads constructor(
     val sourceCode: String,
     val checksum: String,
     val permissions: Set<Permission>,
+    val parameters: List<Parameter>,
     val downloadUrl: String?,
     val enabled: Boolean,
     @Ignore val isBuiltIn: Boolean = false,
@@ -28,7 +30,8 @@ data class Plugin @JvmOverloads constructor(
             var id: String? = null
             var description: String? = null
             var author: String? = null
-            var permissions = mutableSetOf<Permission>()
+            val permissions = mutableSetOf<Permission>()
+            val parameters = mutableListOf<Parameter>()
 
             var foundFooter = false
 
@@ -73,6 +76,7 @@ data class Plugin @JvmOverloads constructor(
                         "@description" -> description = value
                         "@author" -> author = value
                         "@permission" -> permissions.add(Permission.valueOf(value))
+                        "@param" -> Parameter.parse(value)?.let { parameters.add(it) } ?: throw PluginParseException("Invalid parameter: $value")
                         else -> throw PluginParseException("Unknown plugin header key: $key")
                     }
                 }
@@ -100,6 +104,7 @@ data class Plugin @JvmOverloads constructor(
                 sourceCode = source,
                 checksum = source.md5(),
                 permissions = permissions,
+                parameters = parameters,
                 enabled = false,
                 downloadUrl = downloadUrl,
                 isBuiltIn = isBuiltIn,

@@ -4,12 +4,19 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
@@ -33,10 +41,14 @@ import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
+import net.pipe01.pinepartner.scripting.BooleanType
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.EventSeverity
+import net.pipe01.pinepartner.scripting.IntegerType
 import net.pipe01.pinepartner.scripting.LogEvent
+import net.pipe01.pinepartner.scripting.Parameter
 import net.pipe01.pinepartner.scripting.Permission
+import net.pipe01.pinepartner.scripting.StringType
 import net.pipe01.pinepartner.scripting.downloadPlugin
 import net.pipe01.pinepartner.service.BackgroundService
 import java.time.ZoneOffset
@@ -53,10 +65,15 @@ fun PluginPage(
     val coroutineScope = rememberCoroutineScope()
 
     var plugin by remember { mutableStateOf<Plugin?>(null) }
+    var paramValues by remember { mutableStateOf<Map<String, String>?>(null) }
     val events = remember { mutableStateListOf<LogEvent>() }
 
     LaunchedEffect(id) {
         plugin = BuiltInPlugins.get(id) ?: pluginDao.getById(id) ?: throw IllegalArgumentException("Plugin not found")
+        paramValues = pluginDao
+            .getParameterValues(id)
+            ?.associateBy({ it.paramName }, { it.value })
+            ?: emptyMap()
 
         while (true) {
             val resp = backgroundService.getPluginEvents(id, events.lastOrNull()?.time?.toEpochSecond(ZoneOffset.UTC) ?: 0)
@@ -67,9 +84,10 @@ fun PluginPage(
         }
     }
 
-    LoadingStandIn(isLoading = plugin == null) {
+    LoadingStandIn(isLoading = plugin == null || paramValues == null) {
         Plugin(
             plugin = plugin!!,
+            paramValues = paramValues!!,
             events = events,
             onRemove = {
                 coroutineScope.launch {
@@ -99,6 +117,15 @@ fun PluginPage(
                 }
             },
             onViewCode = onViewCode,
+            onSetParameter = { name, value ->
+                val newParamValues = paramValues!!.toMutableMap()
+                newParamValues[name] = value
+                paramValues = newParamValues
+
+                coroutineScope.launch {
+                    pluginDao.setParameterValue(id, name, value)
+                }
+            }
         )
     }
 }
@@ -106,10 +133,12 @@ fun PluginPage(
 @Composable
 private fun Plugin(
     plugin: Plugin,
+    paramValues: Map<String, String> = emptyMap(),
     events: List<LogEvent>,
     onRemove: () -> Unit = { },
     onUpdate: () -> Unit = { },
     onViewCode: () -> Unit = { },
+    onSetParameter: (name: String, value: String) -> Unit = { _, _ -> },
 ) {
     Column(
         modifier = Modifier.padding(16.dp),
@@ -164,6 +193,18 @@ private fun Plugin(
             }
         }
 
+        Property(name = "Parameters") {
+            for (param in plugin.parameters) {
+                val value = paramValues[param.name] ?: param.defaultValue ?: continue
+
+                Parameter(
+                    param = param,
+                    value = value,
+                    onSetValue = { onSetParameter(param.name, it) }
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         Column {
@@ -214,6 +255,51 @@ private fun Property(name: String, value: @Composable () -> Unit) {
     }
 }
 
+@Composable
+private fun Parameter(param: Parameter, value: String, onSetValue: (String) -> Unit) {
+    Row(
+        modifier = Modifier.defaultMinSize(minHeight = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            modifier = Modifier.weight(40f),
+            text = param.name,
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        Row(modifier = Modifier.weight(60f)) {
+            if (param.defaultValue != null) {
+                FilledIconButton(onClick = {
+                    onSetValue(param.defaultValue)
+                }) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Reset to default")
+                }
+            }
+
+            when (param.type) {
+                StringType -> TextField(
+                    value = StringType.unmarshal(value),
+                    onValueChange = { onSetValue(StringType.marshal(it)) },
+                    singleLine = true,
+                )
+
+                IntegerType -> TextField(
+                    value = IntegerType.unmarshal(value).toString(),
+                    onValueChange = { onSetValue(IntegerType.marshal(it.filter(Char::isDigit).toInt())) },
+                    singleLine = true,
+                )
+
+                BooleanType -> {
+                    Switch(
+                        checked = BooleanType.unmarshal(value),
+                        onCheckedChange = { onSetValue(BooleanType.marshal(it)) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun PluginPreview() {
@@ -226,6 +312,23 @@ fun PluginPreview() {
             sourceCode = "",
             checksum = "",
             permissions = Permission.entries.toSet(),
+            parameters = listOf(
+                Parameter(
+                    name = "param1",
+                    type = StringType,
+                    defaultValue = "default",
+                ),
+                Parameter(
+                    name = "param2",
+                    type = IntegerType,
+                    defaultValue = "123",
+                ),
+                Parameter(
+                    name = "param3",
+                    type = BooleanType,
+                    defaultValue = "true",
+                ),
+            ),
             downloadUrl = "",
             enabled = true,
             isBuiltIn = false,
@@ -245,6 +348,7 @@ fun PluginPreviewNoPermissions() {
             author = "author",
             sourceCode = "",
             permissions = emptySet(),
+            parameters = emptyList(),
             checksum = "",
             downloadUrl = "",
             enabled = true,
@@ -265,6 +369,7 @@ fun PluginPreviewNoDescription() {
             author = "author",
             sourceCode = "",
             permissions = emptySet(),
+            parameters = emptyList(),
             checksum = "",
             downloadUrl = "",
             enabled = true,
