@@ -4,14 +4,17 @@ package net.pipe01.pinepartner.scripting
 import android.media.AudioManager
 import android.media.session.MediaSessionManager
 import android.util.Log
+import com.google.android.gms.location.FusedLocationProviderClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.api.Finalizeable
 import net.pipe01.pinepartner.scripting.api.HTTP
+import net.pipe01.pinepartner.scripting.api.Location
 import net.pipe01.pinepartner.scripting.api.Media
 import net.pipe01.pinepartner.scripting.api.Notifications
 import net.pipe01.pinepartner.scripting.api.Require
@@ -19,6 +22,7 @@ import net.pipe01.pinepartner.scripting.api.Volume
 import net.pipe01.pinepartner.scripting.api.Watches
 import net.pipe01.pinepartner.scripting.api.adapters.BLECharacteristicAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.BLEServiceAdapter
+import net.pipe01.pinepartner.scripting.api.adapters.LocationAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.NotificationAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.PlaybackStateAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.VolumeStreamAdapter
@@ -41,6 +45,7 @@ data class ScriptDependencies(
     val deviceManager: DeviceManager,
     val audioManager: AudioManager,
     val mediaSessionManager: MediaSessionManager,
+    val fusedLocationProviderClient: FusedLocationProviderClient,
 )
 
 class Runner(val plugin: Plugin, deps: ScriptDependencies) {
@@ -97,6 +102,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, HTTP::class.java)
             ScriptableObject.defineClass(scope, Volume::class.java)
             ScriptableObject.defineClass(scope, Media::class.java)
+            ScriptableObject.defineClass(scope, Location::class.java)
 
             ScriptableObject.defineClass(scope, WatchAdapter::class.java)
             ScriptableObject.defineClass(scope, NotificationAdapter::class.java)
@@ -104,6 +110,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, BLECharacteristicAdapter::class.java)
             ScriptableObject.defineClass(scope, VolumeStreamAdapter::class.java)
             ScriptableObject.defineClass(scope, PlaybackStateAdapter::class.java)
+            ScriptableObject.defineClass(scope, LocationAdapter::class.java)
 
             ScriptableObject.putProperty(scope, "require", Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent))
 
@@ -129,7 +136,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
 
     fun start() {
         if (!_hasStarted.getAndSet(true)) {
-            CoroutineScope(dispatcher).run {
+            CoroutineScope(dispatcher).launch {
                 contextFactory.call {
                     try {
                         script.exec(it, scope)

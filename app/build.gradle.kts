@@ -83,6 +83,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1-Beta")
+
     implementation("com.google.accompanist:accompanist-drawablepainter:0.34.0")
 
     val nav_version = "2.7.7"
@@ -104,4 +106,6 @@ dependencies {
     implementation(files("libs/rhino-1.7.15-SNAPSHOT.jar"))
 
     implementation("com.github.qawaz:compose-code-editor:2.0.3")
+
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 }

@@ -73,6 +73,14 @@ class Require(
                 }
             }
 
+            "location" -> {
+                checkPermission(cx, Permission.LOCATION)
+
+                createInstance<Location>(cx, scope) {
+                    init(deps.fusedLocationProviderClient)
+                }
+            }
+
             else -> throw ScriptRuntime.throwError(cx, scope, "Unknown module $className")
         }
     }

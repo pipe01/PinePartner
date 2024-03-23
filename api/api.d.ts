@@ -47,7 +47,14 @@ declare interface PlaybackState {
     get album(): string | null;
 }
 
-declare interface Watches {
+declare interface Location {
+    get latitude(): number;
+    get longitude(): number;
+    get altitude(): number | null;
+    get accuracy(): number | null;
+}
+
+declare interface WatchesService {
     get all(): Watch[];
 
     addEventListener(event: "connected", cb: (watch: Watch) => void): void;
@@ -57,7 +64,7 @@ declare interface Watches {
     removeEventListener(event: "disconnected", cb: (watchAddress: string) => void): void;
 }
 
-declare interface Notifications {
+declare interface NotificationsService {
     addEventListener(event: "received", cb: (notif: Notification) => void): void;
     removeEventListener(event: "received", cb: (notif: Notification) => void): void;
 }
@@ -68,12 +75,12 @@ declare type HTTPOptions = {
     headers?: Record<string, string>;
 }
 
-declare interface HTTP {
+declare interface HTTPService {
     request(method: HTTPMethod, url: string, cb: (response: string) => void): void;
     request(method: HTTPMethod, url: string, options: HTTPOptions, cb: (response: string) => void): void;
 }
 
-declare interface Volume {
+declare interface VolumeService {
     get voiceCallStream(): VolumeStream;
     get systemStream(): VolumeStream;
     get ringStream(): VolumeStream;
@@ -83,7 +90,7 @@ declare interface Volume {
     get accessibilityStream(): VolumeStream;
 }
 
-declare interface Media {
+declare interface MediaService {
     get state(): PlaybackState;
 
     play(): void;
@@ -92,8 +99,13 @@ declare interface Media {
     previous(): void;
 }
 
-declare function require(module: "watches"): Watches;
-declare function require(module: "notifications"): Notifications;
-declare function require(module: "http"): HTTP;
-declare function require(module: "volume"): Volume;
-declare function require(module: "media"): Media;
+declare interface LocationService {
+    get location(): Location
+}
+
+declare function require(module: "watches"): WatchesService;
+declare function require(module: "notifications"): NotificationsService;
+declare function require(module: "http"): HTTPService;
+declare function require(module: "volume"): VolumeService;
+declare function require(module: "media"): MediaService;
+declare function require(module: "location"): LocationService;

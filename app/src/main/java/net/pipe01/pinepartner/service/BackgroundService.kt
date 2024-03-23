@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,6 +99,8 @@ class BackgroundService : Service() {
 
         val mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
 
+        val fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(applicationContext)
+
         BuiltInPlugins.init(assets)
 
         pluginManager = PluginManager(
@@ -107,7 +110,8 @@ class BackgroundService : Service() {
                 notifManager,
                 deviceManager,
                 audioManager,
-                mediaSessionManager
+                mediaSessionManager,
+                fusedLocationProviderClient,
             ),
         )
 
