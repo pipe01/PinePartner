@@ -13,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.Typeface
 import androidx.compose.ui.unit.dp
 import com.wakaztahir.codeeditor.highlight.model.CodeLang
 import com.wakaztahir.codeeditor.highlight.prettify.PrettifyParser
@@ -49,9 +51,13 @@ fun CodeViewerPage(pluginDao: PluginDao, pluginId: String) {
                 .padding(5.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            
+            val fontFamily = FontFamily(Typeface(android.graphics.Typeface.MONOSPACE))
+
             SelectionContainer {
-                Text(text = parsedCode)
+                Text(
+                    text = parsedCode,
+                    fontFamily = fontFamily,
+                )
             }
         }
     }
