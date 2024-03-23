@@ -11,6 +11,9 @@ class Converters {
 
     @TypeConverter
     fun toPermissionSet(value: String): Set<Permission> {
-        return value.split(",").map { Permission.valueOf(it) }.toSet()
+        return if (value.isBlank())
+            emptySet()
+        else
+            value.split(",").map { Permission.valueOf(it) }.toSet()
     }
 }
