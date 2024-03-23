@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.Typeface
 import androidx.compose.ui.unit.dp
@@ -20,6 +21,10 @@ import com.wakaztahir.codeeditor.highlight.model.CodeLang
 import com.wakaztahir.codeeditor.highlight.prettify.PrettifyParser
 import com.wakaztahir.codeeditor.highlight.theme.CodeThemeType
 import com.wakaztahir.codeeditor.highlight.utils.parseCodeAsAnnotatedString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
@@ -28,24 +33,25 @@ import net.pipe01.pinepartner.scripting.BuiltInPlugins
 fun CodeViewerPage(pluginDao: PluginDao, pluginId: String) {
     var plugin by remember { mutableStateOf<Plugin?>(null) }
 
-    LaunchedEffect(pluginId) {
-        plugin = BuiltInPlugins.get(pluginId) ?: pluginDao.getById(pluginId)
-    }
-
     val parser = remember { PrettifyParser() }
     val themeState by remember { mutableStateOf(CodeThemeType.Default) }
     val theme = remember(themeState) { themeState.theme() }
+    var parsedCode by remember { mutableStateOf<AnnotatedString?>(null) }
 
-    if (plugin != null) {
-        val parsedCode = remember {
-            parseCodeAsAnnotatedString(
+    LaunchedEffect(pluginId) {
+        plugin = BuiltInPlugins.get(pluginId) ?: pluginDao.getById(pluginId)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            parsedCode = parseCodeAsAnnotatedString(
                 parser = parser,
                 theme = theme,
                 lang = CodeLang.JavaScript,
                 code = plugin!!.sourceCode,
             )
         }
+    }
 
+    LoadingStandIn(isLoading = plugin == null || parsedCode == null) {
         Column(
             modifier = Modifier
                 .padding(5.dp)
@@ -55,7 +61,7 @@ fun CodeViewerPage(pluginDao: PluginDao, pluginId: String) {
 
             SelectionContainer {
                 Text(
-                    text = parsedCode,
+                    text = parsedCode!!,
                     fontFamily = fontFamily,
                 )
             }
