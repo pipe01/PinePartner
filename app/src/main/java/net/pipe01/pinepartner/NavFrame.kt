@@ -39,6 +39,7 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.pages.devices.AddDevicePage
 import net.pipe01.pinepartner.pages.devices.DevicePage
 import net.pipe01.pinepartner.pages.devices.DevicesPage
+import net.pipe01.pinepartner.pages.plugins.CodeViewerPage
 import net.pipe01.pinepartner.pages.plugins.ImportPluginPage
 import net.pipe01.pinepartner.pages.plugins.PluginPage
 import net.pipe01.pinepartner.pages.plugins.PluginsPage
@@ -175,7 +176,15 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, backgroundServic
                     backgroundService = backgroundService,
                     pluginDao = db.pluginDao(),
                     id = id!!,
-                    onRemoved = { navController.navigate(Route.PLUGINS) }
+                    onRemoved = { navController.navigate(Route.PLUGINS) },
+                    onViewCode = { navController.navigate("${Route.PLUGINS}/${id}/code") },
+                )
+            }
+            composable("${Route.PLUGINS}/{id}/code") {
+                val id = it.arguments?.getString("id")
+                CodeViewerPage(
+                    pluginDao = db.pluginDao(),
+                    pluginId = id!!,
                 )
             }
         }

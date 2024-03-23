@@ -47,6 +47,7 @@ fun PluginPage(
     backgroundService: BackgroundService,
     id: String,
     onRemoved: () -> Unit,
+    onViewCode: () -> Unit,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -97,6 +98,7 @@ fun PluginPage(
                     Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()
                 }
             },
+            onViewCode = onViewCode,
         )
     }
 }
@@ -107,6 +109,7 @@ private fun Plugin(
     events: List<LogEvent>,
     onRemove: () -> Unit = { },
     onUpdate: () -> Unit = { },
+    onViewCode: () -> Unit = { },
 ) {
     Column(
         modifier = Modifier.padding(16.dp),
@@ -136,6 +139,9 @@ private fun Plugin(
                     Text(text = "Update plugin")
                 }
             }
+        }
+        Button(onClick = onViewCode) {
+            Text(text = "View code")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
