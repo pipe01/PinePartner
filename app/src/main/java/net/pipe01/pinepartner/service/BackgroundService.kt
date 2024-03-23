@@ -158,6 +158,40 @@ class BackgroundService : Service() {
         Log.i(TAG, "Service destroyed")
     }
 
+    override fun onBind(p0: Intent?): IBinder {
+        return ServiceBinder(this)
+    }
+
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(NOTIF_CHANNEL_ID, "Background Service Notification", NotificationManager.IMPORTANCE_HIGH).apply {
+            enableVibration(false)
+            enableLights(false)
+            importance = NotificationManager.IMPORTANCE_LOW
+        }
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+    }
+
+    private fun toggleNotificationListenerService() {
+        Log.i(TAG, "Toggling notification listener service")
+
+        val thisComponent = ComponentName(
+            this,
+            BackgroundService::class.java
+        )
+        val pm = packageManager
+        pm.setComponentEnabledSetting(
+            thisComponent,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        pm.setComponentEnabledSetting(
+            thisComponent,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP
+        )
+    }
+
     class ServiceBinder(val service: BackgroundService) : Binder()
 
     suspend fun sendTestNotification() {
@@ -210,39 +244,5 @@ class BackgroundService : Service() {
 
     suspend fun reloadPlugins() {
         pluginManager.reload()
-    }
-
-    override fun onBind(p0: Intent?): IBinder {
-        return ServiceBinder(this)
-    }
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(NOTIF_CHANNEL_ID, "Background Service Notification", NotificationManager.IMPORTANCE_HIGH).apply {
-            enableVibration(false)
-            enableLights(false)
-            importance = NotificationManager.IMPORTANCE_LOW
-        }
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
-    }
-
-    private fun toggleNotificationListenerService() {
-        Log.i(TAG, "Toggling notification listener service")
-
-        val thisComponent = ComponentName(
-            this,
-            BackgroundService::class.java
-        )
-        val pm = packageManager
-        pm.setComponentEnabledSetting(
-            thisComponent,
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        pm.setComponentEnabledSetting(
-            thisComponent,
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
     }
 }
