@@ -122,17 +122,19 @@ private fun Plugin(
             )
         }
 
-        Row(modifier = Modifier.padding(top = 16.dp)) {
-            Button(
-                onClick = onRemove, //TODO: Ask for confirmation
-            ) {
-                Text(text = "Remove plugin")
-            }
+        if (!plugin.isBuiltIn) {
+            Row(modifier = Modifier.padding(top = 16.dp)) {
+                Button(
+                    onClick = onRemove, //TODO: Ask for confirmation
+                ) {
+                    Text(text = "Remove plugin")
+                }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.weight(1f))
 
-            Button(onClick = onUpdate) {
-                Text(text = "Update plugin")
+                Button(onClick = onUpdate) {
+                    Text(text = "Update plugin")
+                }
             }
         }
 
