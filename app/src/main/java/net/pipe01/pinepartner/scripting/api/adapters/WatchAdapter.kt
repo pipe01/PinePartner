@@ -44,10 +44,7 @@ class WatchAdapter : ApiScriptableObject(WatchAdapter::class) {
                 field.isAccessible = true
                 field.get(time) as Double
             }
-            else -> {
-                Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid time"))
-                0.0
-            }
+            else -> throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid time"))
         }
 
         val localTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(timeMillis.toLong()), ZoneId.systemDefault())
