@@ -6,7 +6,9 @@ import com.google.android.gms.location.Priority
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import net.pipe01.pinepartner.scripting.api.adapters.LocationAdapter
-import org.mozilla.javascript.annotations.JSGetter
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Undefined
+import org.mozilla.javascript.annotations.JSFunction
 
 class LocationService : ApiScriptableObject(LocationService::class) {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -16,9 +18,19 @@ class LocationService : ApiScriptableObject(LocationService::class) {
     }
 
     @SuppressLint("MissingPermission")
-    @JSGetter
-    fun getCurrent(): LocationAdapter {
-        val task = fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+    @JSFunction
+    fun getCurrent(priorityValue: Any): LocationAdapter {
+        val priority = if (Undefined.isUndefined(priorityValue))
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        else when (priorityValue) {
+            "highAccuracy" -> Priority.PRIORITY_HIGH_ACCURACY
+            "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            "lowPower" -> Priority.PRIORITY_LOW_POWER
+            "passive" -> Priority.PRIORITY_PASSIVE
+            else -> throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid priority value"))
+        }
+
+        val task = fusedLocationClient.getCurrentLocation(priority, null)
 
         val location = runBlocking {
             task.await()
