@@ -76,6 +76,8 @@ declare type HTTPOptions = {
 }
 
 declare interface HTTPService {
+    request(method: HTTPMethod, url: string): void;
+    request(method: HTTPMethod, url: string, options: HTTPOptions): void;
     request(method: HTTPMethod, url: string, cb: (response: string) => void): void;
     request(method: HTTPMethod, url: string, options: HTTPOptions, cb: (response: string) => void): void;
 }
