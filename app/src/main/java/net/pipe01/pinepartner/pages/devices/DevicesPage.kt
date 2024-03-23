@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -123,7 +122,6 @@ private fun DeviceItem(
     onClick: () -> Unit,
     onRemoveDevice: () -> Unit,
 ) {
-    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
 
     var state by remember { mutableStateOf<WatchState?>(null) }

@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -31,7 +30,6 @@ import net.pipe01.pinepartner.service.BackgroundService
 @SuppressLint("MissingPermission")
 @Composable
 fun DevicePage(db: AppDatabase, deviceAddress: String, backgroundService: BackgroundService) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var watch by remember { mutableStateOf<Watch?>(null) }
