@@ -8,11 +8,7 @@ import net.pipe01.pinepartner.scripting.api.adapters.PlaybackStateAdapter
 import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
 
-class Media : ApiScriptableObject(CLASS_NAME) {
-    companion object {
-        val CLASS_NAME = "Media"
-    }
-
+class MediaService : ApiScriptableObject(MediaService::class) {
     private lateinit var mediaSessionManager: MediaSessionManager
 
     fun init(mediaSessionManager: MediaSessionManager) {
@@ -47,7 +43,7 @@ class Media : ApiScriptableObject(CLASS_NAME) {
             return null
 
         return sessions[0].playbackState?.let { state ->
-            newObject(PlaybackStateAdapter.CLASS_NAME) {
+            newObject(PlaybackStateAdapter::class) {
                 init(state, sessions[0].metadata)
             }
         }

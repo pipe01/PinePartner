@@ -6,7 +6,7 @@ import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
 import java.util.UUID
 
-class BLEServiceAdapter : ApiScriptableObject("BLEService") {
+class BLEServiceAdapter : ApiScriptableObject(BLEServiceAdapter::class) {
     private lateinit var service: ClientBleGattService
 
     fun init(service: ClientBleGattService) {
@@ -21,7 +21,7 @@ class BLEServiceAdapter : ApiScriptableObject("BLEService") {
         val uuid = UUID.fromString(uuidStr)
         val characteristic = service.findCharacteristic(uuid) ?: return null
 
-        return newObject("BLECharacteristic") {
+        return newObject(BLECharacteristicAdapter::class) {
             init(characteristic)
         }
     }

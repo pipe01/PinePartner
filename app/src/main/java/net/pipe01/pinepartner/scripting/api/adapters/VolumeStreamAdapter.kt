@@ -7,7 +7,7 @@ import org.mozilla.javascript.annotations.JSGetter
 import org.mozilla.javascript.annotations.JSSetter
 import kotlin.properties.Delegates
 
-class VolumeStreamAdapter : ApiScriptableObject("VolumeStream") {
+class VolumeStreamAdapter : ApiScriptableObject(VolumeStreamAdapter::class) {
     private var volumeStream by Delegates.notNull<Int>()
     private lateinit var audioManager: AudioManager
 

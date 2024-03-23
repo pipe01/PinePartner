@@ -6,10 +6,8 @@ import net.pipe01.pinepartner.scripting.api.ApiScriptableObject
 import org.mozilla.javascript.annotations.JSGetter
 import kotlin.properties.Delegates
 
-class PlaybackStateAdapter : ApiScriptableObject(CLASS_NAME) {
+class PlaybackStateAdapter : ApiScriptableObject(PlaybackStateAdapter::class) {
     companion object {
-        val CLASS_NAME = "PlaybackState"
-
         private val emptyMetadata = MediaMetadata.Builder().build()
     }
 

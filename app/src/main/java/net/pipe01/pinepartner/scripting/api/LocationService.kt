@@ -8,11 +8,7 @@ import kotlinx.coroutines.tasks.await
 import net.pipe01.pinepartner.scripting.api.adapters.LocationAdapter
 import org.mozilla.javascript.annotations.JSGetter
 
-class Location : ApiScriptableObject(CLASS_NAME) {
-    companion object {
-        const val CLASS_NAME = "Location"
-    }
-
+class LocationService : ApiScriptableObject(LocationService::class) {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     fun init(fusedLocationClient: FusedLocationProviderClient) {
@@ -28,7 +24,7 @@ class Location : ApiScriptableObject(CLASS_NAME) {
             task.await()
         }
 
-        return newObject<LocationAdapter>(LocationAdapter.CLASS_NAME).apply {
+        return newObject(LocationAdapter::class).apply {
             init(location)
         }
     }

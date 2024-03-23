@@ -9,7 +9,7 @@ import org.mozilla.javascript.Function
 import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
 
-class Watches : ApiScriptableObject("Watches") {
+class WatchesService : ApiScriptableObject(WatchesService::class) {
     private lateinit var db: AppDatabase
     private lateinit var deviceManager: DeviceManager
 
@@ -19,7 +19,7 @@ class Watches : ApiScriptableObject("Watches") {
     }
 
     private fun getWatch(dev: Device): WatchAdapter {
-        return newObject("Watch") {
+        return newObject(WatchAdapter::class) {
             init(dev, deviceManager)
         }
     }

@@ -4,11 +4,7 @@ import android.location.Location
 import net.pipe01.pinepartner.scripting.api.ApiScriptableObject
 import org.mozilla.javascript.annotations.JSGetter
 
-class LocationAdapter : ApiScriptableObject(CLASS_NAME) {
-    companion object {
-        const val CLASS_NAME = "LocationAdapter"
-    }
-
+class LocationAdapter : ApiScriptableObject(LocationAdapter::class) {
     private lateinit var location: Location
 
     fun init(location: Location) {

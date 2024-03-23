@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.UUID
 
-class WatchAdapter : ApiScriptableObject("Watch") {
+class WatchAdapter : ApiScriptableObject(WatchAdapter::class) {
     private lateinit var device: Device
     private lateinit var deviceManager: DeviceManager
 
@@ -61,7 +61,7 @@ class WatchAdapter : ApiScriptableObject("Watch") {
     fun getService(uuid: String): BLEServiceAdapter? {
         val service = device.getBLEService(UUID.fromString(uuid)) ?: return null
 
-        return newObject("BLEService") {
+        return newObject(BLEServiceAdapter::class) {
             init(service)
         }
     }

@@ -38,7 +38,7 @@ class Require(
 
         return when (className) {
             "watches" -> {
-                createInstance<Watches>(cx, scope) {
+                createInstance<WatchesService>(cx, scope) {
                     init(deps.db, deps.deviceManager)
                 }
             }
@@ -46,7 +46,7 @@ class Require(
             "notifications" -> {
                 checkPermission(cx, Permission.RECEIVE_NOTIFICATIONS)
 
-                createInstance<Notifications>(cx, scope) {
+                createInstance<NotificationsService>(cx, scope) {
                     init(deps.notifManager)
                 }
             }
@@ -54,13 +54,13 @@ class Require(
             "http" -> {
                 checkPermission(cx, Permission.HTTP)
 
-                createInstance<HTTP>(cx, scope) { }
+                createInstance<HTTPService>(cx, scope) { }
             }
 
             "volume" -> {
                 checkPermission(cx, Permission.VOLUME_CONTROL)
 
-                createInstance<Volume>(cx, scope) {
+                createInstance<VolumeService>(cx, scope) {
                     init(deps.audioManager)
                 }
             }
@@ -68,7 +68,7 @@ class Require(
             "media" -> {
                 checkPermission(cx, Permission.MEDIA_CONTROL)
 
-                createInstance<Media>(cx, scope) {
+                createInstance<MediaService>(cx, scope) {
                     init(deps.mediaSessionManager)
                 }
             }
@@ -76,7 +76,7 @@ class Require(
             "location" -> {
                 checkPermission(cx, Permission.LOCATION)
 
-                createInstance<Location>(cx, scope) {
+                createInstance<LocationService>(cx, scope) {
                     init(deps.fusedLocationProviderClient)
                 }
             }

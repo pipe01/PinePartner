@@ -9,7 +9,7 @@ import org.mozilla.javascript.NativeObject
 import org.mozilla.javascript.Undefined
 import org.mozilla.javascript.annotations.JSFunction
 
-class HTTP : ApiScriptableObject("HTTP") {
+class HTTPService : ApiScriptableObject(HTTPService::class) {
     @JSFunction
     fun request(method: String, url: String, arg1: Any, arg2: Any?) {
         val options: NativeObject?

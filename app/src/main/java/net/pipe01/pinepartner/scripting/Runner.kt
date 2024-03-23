@@ -13,13 +13,13 @@ import kotlinx.coroutines.newSingleThreadContext
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.api.Finalizeable
-import net.pipe01.pinepartner.scripting.api.HTTP
-import net.pipe01.pinepartner.scripting.api.Location
-import net.pipe01.pinepartner.scripting.api.Media
-import net.pipe01.pinepartner.scripting.api.Notifications
+import net.pipe01.pinepartner.scripting.api.HTTPService
+import net.pipe01.pinepartner.scripting.api.LocationService
+import net.pipe01.pinepartner.scripting.api.MediaService
+import net.pipe01.pinepartner.scripting.api.NotificationsService
 import net.pipe01.pinepartner.scripting.api.Require
-import net.pipe01.pinepartner.scripting.api.Volume
-import net.pipe01.pinepartner.scripting.api.Watches
+import net.pipe01.pinepartner.scripting.api.VolumeService
+import net.pipe01.pinepartner.scripting.api.WatchesService
 import net.pipe01.pinepartner.scripting.api.adapters.BLECharacteristicAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.BLEServiceAdapter
 import net.pipe01.pinepartner.scripting.api.adapters.LocationAdapter
@@ -97,12 +97,12 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
                 ctx.initSafeStandardObjects()
             }
 
-            ScriptableObject.defineClass(scope, Watches::class.java)
-            ScriptableObject.defineClass(scope, Notifications::class.java)
-            ScriptableObject.defineClass(scope, HTTP::class.java)
-            ScriptableObject.defineClass(scope, Volume::class.java)
-            ScriptableObject.defineClass(scope, Media::class.java)
-            ScriptableObject.defineClass(scope, Location::class.java)
+            ScriptableObject.defineClass(scope, WatchesService::class.java)
+            ScriptableObject.defineClass(scope, NotificationsService::class.java)
+            ScriptableObject.defineClass(scope, HTTPService::class.java)
+            ScriptableObject.defineClass(scope, VolumeService::class.java)
+            ScriptableObject.defineClass(scope, MediaService::class.java)
+            ScriptableObject.defineClass(scope, LocationService::class.java)
 
             ScriptableObject.defineClass(scope, WatchAdapter::class.java)
             ScriptableObject.defineClass(scope, NotificationAdapter::class.java)

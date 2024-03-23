@@ -18,7 +18,7 @@ import org.mozilla.javascript.typedarrays.NativeUint8Array
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class BLECharacteristicAdapter : ApiScriptableObject("BLECharacteristic") {
+class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::class) {
     private lateinit var characteristic: ClientBleGattCharacteristic
 
     private val subscriptionScopes = mutableMapOf<Function, CoroutineScope>()

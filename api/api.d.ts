@@ -100,7 +100,7 @@ declare interface MediaService {
 }
 
 declare interface LocationService {
-    get location(): Location
+    get current(): Location
 }
 
 declare function require(module: "watches"): WatchesService;

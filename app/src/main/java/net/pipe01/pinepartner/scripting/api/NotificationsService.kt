@@ -6,7 +6,7 @@ import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.annotations.JSFunction
 
-class Notifications : ApiScriptableObject("Notifications") {
+class NotificationsService : ApiScriptableObject(NotificationsService::class) {
     private lateinit var notifManager: NotificationsManager
 
     fun init(notifManager: NotificationsManager) {
@@ -17,7 +17,7 @@ class Notifications : ApiScriptableObject("Notifications") {
     fun addEventListener(event: String, cb: Function) {
         when (event) {
             "received" -> addListener(notifManager.notificationReceived, event, cb) {
-                newObject<NotificationAdapter>("Notification") {
+                newObject(NotificationAdapter::class) {
                     init(it)
                 }
             }

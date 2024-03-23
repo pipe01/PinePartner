@@ -14,12 +14,13 @@ import org.mozilla.javascript.Function
 import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.ScriptableObject
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.reflect.KClass
 
 interface Finalizeable {
     fun finalize()
 }
 
-abstract class ApiScriptableObject(private val className: String) : ScriptableObject(), Finalizeable {
+abstract class ApiScriptableObject(private val clazz: KClass<*>) : ScriptableObject(), Finalizeable {
     private lateinit var contextFactory: ContextFactory
     private lateinit var dispatcher: CoroutineDispatcher
     private lateinit var onEvent: OnLogEvent
@@ -29,7 +30,7 @@ abstract class ApiScriptableObject(private val className: String) : ScriptableOb
     private val listeners = mutableMapOf<Pair<String, Function>, () -> Unit>()
     private val children = mutableListOf<Finalizeable>()
 
-    override fun getClassName() = className
+    override fun getClassName() = clazz.simpleName!!
 
     fun initSuper(contextFactory: ContextFactory, dispatcher: CoroutineDispatcher, onEvent: OnLogEvent) {
         this.contextFactory = contextFactory
@@ -97,11 +98,11 @@ abstract class ApiScriptableObject(private val className: String) : ScriptableOb
         }
     }
 
-    fun <T : ApiScriptableObject> newObject(name: String, init: (T.() -> Unit)? = null): T {
+    fun <T : ApiScriptableObject> newObject(clazz: KClass<T>, init: (T.() -> Unit)? = null): T {
         checkFinalized()
 
         val scope = getTopLevelScope(this)
-        val obj = Context.getCurrentContext().newObject(scope, name) as? T ?: throw IllegalArgumentException("Invalid class")
+        val obj = Context.getCurrentContext().newObject(scope, clazz.simpleName!!) as? T ?: throw IllegalArgumentException("Invalid class")
 
         obj.initSuper(contextFactory, dispatcher, onEvent)
 

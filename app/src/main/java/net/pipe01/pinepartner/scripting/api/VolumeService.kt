@@ -4,7 +4,7 @@ import android.media.AudioManager
 import net.pipe01.pinepartner.scripting.api.adapters.VolumeStreamAdapter
 import org.mozilla.javascript.annotations.JSGetter
 
-class Volume : ApiScriptableObject("Volume") {
+class VolumeService : ApiScriptableObject(VolumeService::class) {
     private lateinit var audioManager: AudioManager
 
     fun init(audioManager: AudioManager) {
@@ -33,7 +33,7 @@ class Volume : ApiScriptableObject("Volume") {
     fun getAccessibilityStream() = getStream(AudioManager.STREAM_ACCESSIBILITY)
 
     private fun getStream(index: Int): VolumeStreamAdapter {
-        return newObject<VolumeStreamAdapter>("VolumeStream").also {
+        return newObject(VolumeStreamAdapter::class).also {
             it.init(index, audioManager)
         }
     }
