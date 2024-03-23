@@ -59,8 +59,6 @@ fun DevicesPage(
     val watches = remember { mutableStateListOf<Watch>() }
     var isLoading by remember { mutableStateOf(true) }
 
-    Log.d("MainPage", "Loading watches...")
-
     LaunchedEffect(Unit) {
         watches.addAll(db.watchDao().getAll())
 
