@@ -43,14 +43,14 @@ import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.WatchState
-import net.pipe01.pinepartner.service.Action
+import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.utils.BoxWithFAB
-import net.pipe01.pinepartner.utils.callIntent
 
 
 @Composable
 fun DevicesPage(
     db: AppDatabase,
+    backgroundService: BackgroundService,
     onAddDevice: () -> Unit,
     onDeviceClick: (address: String) -> Unit,
 ) {
@@ -96,6 +96,7 @@ fun DevicesPage(
                     DeviceItem(
                         watch = watch,
                         coroutineScope = coroutineScope,
+                        backgroundService = backgroundService,
                         onClick = { onDeviceClick(watch.address) },
                         onRemoveDevice = {
                             coroutineScope.launch {
@@ -118,6 +119,7 @@ fun DevicesPage(
 private fun DeviceItem(
     watch: Watch,
     coroutineScope: CoroutineScope,
+    backgroundService: BackgroundService,
     onClick: () -> Unit,
     onRemoveDevice: () -> Unit,
 ) {
@@ -131,9 +133,7 @@ private fun DeviceItem(
     LaunchedEffect(watch.address) {
         withContext(Dispatchers.Main) {
             while (true) {
-                state = callIntent(context, Action.GetWatchState, WatchState::class.java) {
-                    putString("address", watch.address)
-                }
+                state = backgroundService.getWatchState(watch.address)
 
                 delay(1000)
             }
@@ -203,9 +203,7 @@ private fun DeviceItem(
         if (state?.isConnected == true) {
             Button(onClick = {
                 coroutineScope.launch {
-                    callIntent(context, Action.DisconnectWatch) {
-                        putString("address", watch.address)
-                    }
+                    backgroundService.disconnectWatch(watch.address)
                 }
 
                 state = null

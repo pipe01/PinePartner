@@ -44,6 +44,7 @@ import net.pipe01.pinepartner.pages.plugins.PluginPage
 import net.pipe01.pinepartner.pages.plugins.PluginsPage
 import net.pipe01.pinepartner.pages.settings.NotificationSettingsPage
 import net.pipe01.pinepartner.pages.settings.SettingsPage
+import net.pipe01.pinepartner.service.BackgroundService
 
 object Route {
     const val DEVICES = "devices"
@@ -111,7 +112,7 @@ fun PermissionsFrame(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun NavFrame(navController: NavHostController, db: AppDatabase, modifier: Modifier = Modifier) {
+fun NavFrame(navController: NavHostController, db: AppDatabase, backgroundService: BackgroundService, modifier: Modifier = Modifier) {
     NavHost(
         modifier = modifier,
         navController = navController,
@@ -156,6 +157,7 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, modifier: Modifi
         navigation(startDestination = Route.PLUGINS_HOME, route = Route.PLUGINS) {
             composable(Route.PLUGINS_HOME) {
                 PluginsPage(
+                    backgroundService = backgroundService,
                     db = db,
                     onPluginClicked = { navController.navigate("${Route.PLUGINS}/${it.id}") },
                     onImportPlugin = { navController.navigate(Route.PLUGINS_IMPORT) },
@@ -170,6 +172,7 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, modifier: Modifi
             composable("${Route.PLUGINS}/{id}") {
                 val id = it.arguments?.getString("id")
                 PluginPage(
+                    backgroundService = backgroundService,
                     pluginDao = db.pluginDao(),
                     id = id!!,
                     onRemoved = { navController.navigate(Route.PLUGINS) }
@@ -180,6 +183,7 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, modifier: Modifi
             composable(Route.DEVICES_HOME) {
                 DevicesPage(
                     db = db,
+                    backgroundService = backgroundService,
                     onAddDevice = { navController.navigate(Route.DEVICES_ADD) },
                     onDeviceClick = { address -> navController.navigate("${Route.DEVICES}/$address") },
                 )
@@ -199,6 +203,7 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, modifier: Modifi
             composable("${Route.DEVICES}/{address}") {
                 val address = it.arguments?.getString("address")
                 DevicePage(
+                    backgroundService = backgroundService,
                     db = db,
                     deviceAddress = address!!,
                 )

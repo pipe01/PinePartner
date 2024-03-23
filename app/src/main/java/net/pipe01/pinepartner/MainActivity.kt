@@ -1,12 +1,21 @@
 package net.pipe01.pinepartner
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Bundle
+import android.os.IBinder
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import net.pipe01.pinepartner.data.AppDatabase
@@ -23,8 +32,24 @@ class MainActivity : ComponentActivity() {
 
         BuiltInPlugins.init(assets)
 
+        val intent = Intent(this, BackgroundService::class.java)
+
         setContent {
             val navController = rememberNavController()
+
+            var service by remember { mutableStateOf<BackgroundService?>(null) }
+
+            LaunchedEffect(Unit) {
+                bindService(intent, object : ServiceConnection {
+                    override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                        service = (binder as BackgroundService.ServiceBinder).service
+                    }
+
+                    override fun onServiceDisconnected(name: ComponentName?) {
+                        Log.d("MainActivity", "Service disconnected")
+                    }
+                }, 0)
+            }
 
             PinePartnerTheme {
                 Scaffold(
@@ -33,11 +58,14 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     PermissionsFrame {
-                        NavFrame(
-                            modifier = Modifier.padding(padding),
-                            navController = navController,
-                            db = db,
-                        )
+                        if (service != null) {
+                            NavFrame(
+                                modifier = Modifier.padding(padding),
+                                navController = navController,
+                                backgroundService = service!!,
+                                db = db,
+                            )
+                        }
                     }
                 }
             }

@@ -26,12 +26,11 @@ import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.WatchState
-import net.pipe01.pinepartner.service.Action
-import net.pipe01.pinepartner.utils.callIntent
+import net.pipe01.pinepartner.service.BackgroundService
 
 @SuppressLint("MissingPermission")
 @Composable
-fun DevicePage(db: AppDatabase, deviceAddress: String) {
+fun DevicePage(db: AppDatabase, deviceAddress: String, backgroundService: BackgroundService) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -45,13 +44,9 @@ fun DevicePage(db: AppDatabase, deviceAddress: String) {
                 throw IllegalArgumentException("Device not found")
             }
 
-            callIntent(context, Action.ConnectWatch) {
-                putString("address", deviceAddress)
-            }
+            backgroundService.connectWatch(deviceAddress)
 
-            state = callIntent(context, Action.GetWatchState, WatchState::class.java) {
-                putString("address", deviceAddress)
-            }
+            state = backgroundService.getWatchState(deviceAddress)
         }
     }
 
@@ -66,7 +61,7 @@ fun DevicePage(db: AppDatabase, deviceAddress: String) {
 
             Button(onClick = {
                 coroutineScope.launch {
-                    callIntent(context, Action.SendTestNotification)
+                    backgroundService.sendTestNotification()
                 }
             }) {
                 Text(text = "Send test notification")

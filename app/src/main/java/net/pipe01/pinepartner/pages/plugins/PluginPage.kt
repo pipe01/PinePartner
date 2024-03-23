@@ -38,14 +38,13 @@ import net.pipe01.pinepartner.scripting.EventSeverity
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.scripting.downloadPlugin
-import net.pipe01.pinepartner.service.Action
-import net.pipe01.pinepartner.utils.callIntent
-import net.pipe01.pinepartner.utils.getParcelableList
+import net.pipe01.pinepartner.service.BackgroundService
 import java.time.ZoneOffset
 
 @Composable
 fun PluginPage(
     pluginDao: PluginDao,
+    backgroundService: BackgroundService,
     id: String,
     onRemoved: () -> Unit,
 ) {
@@ -59,13 +58,9 @@ fun PluginPage(
         plugin = BuiltInPlugins.get(id) ?: pluginDao.getById(id) ?: throw IllegalArgumentException("Plugin not found")
 
         while (true) {
-            val resp = callIntent(context, Action.GetPluginEvents) {
-                putString("id", id)
-                putLong("afterTime", events.lastOrNull()?.time?.toEpochSecond(ZoneOffset.UTC) ?: 0)
-            }
+            val resp = backgroundService.getPluginEvents(id, events.lastOrNull()?.time?.toEpochSecond(ZoneOffset.UTC) ?: 0)
 
-            val newEvents = resp?.getParcelableList<LogEvent>("data") ?: emptyList()
-            events.addAll(newEvents)
+            events.addAll(resp)
 
             delay(1000)
         }
@@ -77,9 +72,7 @@ fun PluginPage(
             events = events,
             onRemove = {
                 coroutineScope.launch {
-                    callIntent(context, Action.DeletePlugin) {
-                        putString("id", id)
-                    }
+                    backgroundService.deletePlugin(id)
 
                     onRemoved()
                 }
@@ -99,7 +92,7 @@ fun PluginPage(
                     pluginDao.update(newPlugin)
                     plugin = newPlugin
 
-                    callIntent(context, Action.ReloadPlugins)
+                    backgroundService.reloadPlugins()
 
                     Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()
                 }

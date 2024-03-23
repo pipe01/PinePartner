@@ -41,14 +41,14 @@ import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
-import net.pipe01.pinepartner.service.Action
+import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.utils.BoxWithFAB
 import net.pipe01.pinepartner.utils.HeaderFrame
-import net.pipe01.pinepartner.utils.callIntent
 
 @Composable
 fun PluginsPage(
     db: AppDatabase,
+    backgroundService: BackgroundService,
     onPluginClicked: (Plugin) -> Unit,
     onImportPlugin: () -> Unit,
 ) {
@@ -86,6 +86,7 @@ fun PluginsPage(
                         .verticalScroll(scrollState),
                 ) {
                     PluginList(
+                        backgroundService = backgroundService,
                         plugins = plugins,
                         onPluginClicked = onPluginClicked,
                     )
@@ -97,6 +98,7 @@ fun PluginsPage(
 
 @Composable
 private fun PluginList(
+    backgroundService: BackgroundService,
     plugins: MutableList<Plugin>,
     onPluginClicked: (Plugin) -> Unit,
 ) {
@@ -112,14 +114,10 @@ private fun PluginList(
                 onClick = { onPluginClicked(plugin) },
                 onEnabledChange = { enabled ->
                     coroutineScope.launch {
-                        val action = if (enabled)
-                            Action.EnablePlugin
+                        if (enabled)
+                            backgroundService.enablePlugin(plugin.id)
                         else
-                            Action.DisablePlugin
-
-                        callIntent(context, action) {
-                            putString("id", plugin.id)
-                        }
+                            backgroundService.disablePlugin(plugin.id)
 
                         val index = plugins.indexOf(plugin)
 

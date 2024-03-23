@@ -25,7 +25,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,7 +42,6 @@ fun ImportPluginPage(
     pluginDao: PluginDao,
     onDone: () -> Unit,
 ) {
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     var downloadUrl by remember { mutableStateOf<String?>(null) }
