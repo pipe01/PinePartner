@@ -37,6 +37,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.pages.devices.AddDevicePage
+import net.pipe01.pinepartner.pages.devices.DFUPage
 import net.pipe01.pinepartner.pages.devices.DevicePage
 import net.pipe01.pinepartner.pages.devices.DevicesPage
 import net.pipe01.pinepartner.pages.plugins.CodeViewerPage
@@ -113,7 +114,13 @@ fun PermissionsFrame(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun NavFrame(navController: NavHostController, db: AppDatabase, backgroundService: BackgroundService, modifier: Modifier = Modifier) {
+fun NavFrame(
+    navController: NavHostController,
+    db: AppDatabase,
+    backgroundService: BackgroundService,
+    onShowBottomBar: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NavHost(
         modifier = modifier,
         navController = navController,
@@ -215,6 +222,20 @@ fun NavFrame(navController: NavHostController, db: AppDatabase, backgroundServic
                     backgroundService = backgroundService,
                     db = db,
                     deviceAddress = address!!,
+                    onUploadFirmware = { navController.navigate("${Route.DEVICES}/$address/dfu") },
+                )
+            }
+            composable("${Route.DEVICES}/{address}/dfu") {
+                val address = it.arguments?.getString("address")
+                DFUPage(
+                    backgroundService = backgroundService,
+                    deviceAddress = address!!,
+                    onStart = { onShowBottomBar(false) },
+                    onFinish = { onShowBottomBar(true) },
+                    onCancel = {
+                        onShowBottomBar(true)
+                        navController.popBackStack()
+                    },
                 )
             }
         }

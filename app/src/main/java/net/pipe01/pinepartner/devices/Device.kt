@@ -2,6 +2,7 @@ package net.pipe01.pinepartner.devices
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -115,7 +116,7 @@ class Device private constructor(val address: String, private val client: Client
 
     fun getBLEService(uuid: UUID) = services.findService(uuid)
 
-    suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope) {
+    suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope, onProgress: (DFUProgress) -> Unit) {
         val files = mutableMapOf<String, ByteArray>()
 
         ZipInputStream(dfuFile).use { zip ->
@@ -129,10 +130,8 @@ class Device private constructor(val address: String, private val client: Client
         val manifestJson = files["manifest.json"]?.decodeToString() ?: throw IllegalArgumentException("No manifest.json found")
         val manifest = Json.decodeFromString<DFUManifest>(manifestJson)
 
-        var binFile = files[manifest.manifest.application.bin_file] ?: throw IllegalArgumentException("No bin file found")
+        val binFile = files[manifest.manifest.application.bin_file] ?: throw IllegalArgumentException("No bin file found")
         val datFile = files[manifest.manifest.application.dat_file] ?: throw IllegalArgumentException("No dat file found")
-
-//        binFile = binFile.sliceArray(0 until 3010)
 
         val packet = InfiniTime.DFUService.PACKET.bind(services)
         val controlPoint = InfiniTime.DFUService.CONTROL_POINT.bind(services)
@@ -157,9 +156,11 @@ class Device private constructor(val address: String, private val client: Client
         val TAG = "DFU"
 
         Log.i(TAG, "Step 1")
+        onProgress(DFUProgress.createInitializing(1))
         controlPoint.write(DataByteArray(byteArrayOf(0x01, 0x04)))
 
         Log.i(TAG, "Step 2")
+        onProgress(DFUProgress.createInitializing(2))
         packet.write(
             DataByteArray(
                 ByteBuffer
@@ -174,35 +175,62 @@ class Device private constructor(val address: String, private val client: Client
         )
 
         Log.i(TAG, "Step 3")
+        onProgress(DFUProgress.createInitializing(3))
         expectReceive(0x10, 0x01, 0x01)
 
         Log.i(TAG, "Step 3.1")
+        onProgress(DFUProgress.createInitializing(4))
         controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x00)))
 
         Log.i(TAG, "Step 4")
+        onProgress(DFUProgress.createInitializing(5))
         packet.write(DataByteArray(datFile), BleWriteType.NO_RESPONSE)
 
         Log.i(TAG, "Step 4.1")
+        onProgress(DFUProgress.createInitializing(6))
         controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x01)))
 
         Log.i(TAG, "Step 5")
+        onProgress(DFUProgress.createInitializing(7))
         expectReceive(0x10, 0x02, 0x01)
 
         val receiptInterval = 10
 
         Log.i(TAG, "Step 5.1")
+        onProgress(DFUProgress.createInitializing(8))
         controlPoint.write(DataByteArray(byteArrayOf(0x08, receiptInterval.toByte())))
 
         Log.i(TAG, "Step 6")
+        onProgress(DFUProgress.createInitializing(9))
         controlPoint.write(DataByteArray(byteArrayOf(0x03)))
 
         Log.i(TAG, "Step 7")
 
         var sentChunks = 0
+        var lastProgressTime = SystemClock.uptimeMillis()
+
+        val progressReportEveryBytes = 1000
 
         for (i in binFile.indices step 20) {
-            if (i % 1000 == 0) {
+            if (i % progressReportEveryBytes == 0) {
                 Log.d(TAG, "Offset $i of ${binFile.size}")
+
+                val now = SystemClock.uptimeMillis()
+                val elapsedMillis = now - lastProgressTime
+                lastProgressTime = now
+
+                val bytesPerSecond = (progressReportEveryBytes.toFloat() / elapsedMillis) * 1000
+                val progress = i.toFloat() / binFile.size
+
+                val bytesLeft = binFile.size - i
+
+                onProgress(DFUProgress(
+                    "Transferring firmware",
+                    progress,
+                    0.05f + progress * 0.9f,
+                    bytesPerSecond.toLong(),
+                    (bytesLeft / bytesPerSecond).toInt(),
+                ))
             }
 
             val until = if (i + 20 > binFile.size) binFile.size else i + 20
@@ -220,21 +248,27 @@ class Device private constructor(val address: String, private val client: Client
         }
 
         Log.i(TAG, "Step 8")
+        onProgress(DFUProgress.createFinishing(1))
         expectReceive(0x10, 0x03, 0x01)
 
         Log.i(TAG, "Step 8.1")
+        onProgress(DFUProgress.createFinishing(2))
         controlPoint.write(DataByteArray(byteArrayOf(0x04)))
 
         Log.i(TAG, "Step 9")
+        onProgress(DFUProgress.createFinishing(3))
         expectReceive(0x10, 0x04, 0x01)
 
         controlJob.cancel()
 
         Log.i(TAG, "Step 9.1")
+        onProgress(DFUProgress.createFinishing(4))
         try {
             controlPoint.write(DataByteArray(byteArrayOf(0x05)))
         } catch (e: GattOperationException) {
             // Expected
         }
+
+        onProgress(DFUProgress("Done", 1f, 1f, isDone = true))
     }
 }

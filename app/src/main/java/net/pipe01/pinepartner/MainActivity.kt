@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             var service by remember { mutableStateOf<BackgroundService?>(null) }
+            var showBottomBar by remember { mutableStateOf(true) }
 
             LaunchedEffect(Unit) {
                 bindService(intent, object : ServiceConnection {
@@ -54,7 +55,9 @@ class MainActivity : ComponentActivity() {
             PinePartnerTheme {
                 Scaffold(
                     bottomBar = {
-                        BottomBar(navController = navController)
+                        if (showBottomBar) {
+                            BottomBar(navController = navController)
+                        }
                     }
                 ) { padding ->
                     PermissionsFrame {
@@ -63,6 +66,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.padding(padding),
                                 navController = navController,
                                 backgroundService = service!!,
+                                onShowBottomBar = { showBottomBar = it },
                                 db = db,
                             )
                         }

@@ -102,7 +102,7 @@ declare interface MediaService {
 }
 
 declare interface LocationService {
-    get current(): Location
+    getCurrent(priority?: "highAccuracy" | "balanced" | "lowPower" | "passive"): Location
 }
 
 declare function require(module: "watches"): WatchesService;

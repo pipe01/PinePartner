@@ -22,11 +22,13 @@ import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
+import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.LogEvent
@@ -48,10 +50,12 @@ class BackgroundService : Service() {
     private val NOTIF_CHANNEL_ID = "PinePartner"
 
     private lateinit var db: AppDatabase;
-
     private val deviceManager = DeviceManager(this)
     private val notifManager = NotificationsManager()
     private lateinit var pluginManager: PluginManager
+
+    private val dfuProgress = mutableMapOf<String, DFUProgress>()
+    private val dfuJobs = mutableMapOf<String, Job>()
 
     private var isStarted = false
 
@@ -232,21 +236,25 @@ class BackgroundService : Service() {
             WatchState(false, "", 0f)
     }
 
-    suspend fun flashWatchDFU(address: String, uri: Uri) {
+    suspend fun startWatchDFU(address: String, uri: Uri) {
+        dfuProgress.remove(address)
+
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
-        Log.d(TAG, "Device found")
-
-        contentResolver.openInputStream(uri)!!.use { stream ->
-            Log.d(TAG, "Flashing watch $address with stream")
-
-            CoroutineScope(Dispatchers.IO).launch {
-                device.flashDFU(stream, this)
-            }.join()
+        dfuJobs[address] = CoroutineScope(Dispatchers.IO).launch {
+            contentResolver.openInputStream(uri)!!.use { stream ->
+                device.flashDFU(stream, this) {
+                    dfuProgress[address] = it
+                }
+            }
         }
     }
+
+    fun getDFUProgress(address: String) = dfuProgress[address]
+
+    fun cancelDFU(address: String) = dfuJobs.remove(address)?.cancel()
 
     fun getPluginEvents(id: String, afterTime: Long): Array<LogEvent> {
         val events = pluginManager.getEvents(id) ?: emptyList()

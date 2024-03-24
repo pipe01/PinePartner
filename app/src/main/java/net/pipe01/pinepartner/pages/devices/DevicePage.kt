@@ -1,8 +1,6 @@
 package net.pipe01.pinepartner.pages.devices
 
 import android.annotation.SuppressLint
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,7 +19,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -32,8 +29,12 @@ import net.pipe01.pinepartner.service.BackgroundService
 
 @SuppressLint("MissingPermission")
 @Composable
-fun DevicePage(db: AppDatabase, deviceAddress: String, backgroundService: BackgroundService) {
-    val context = LocalContext.current
+fun DevicePage(
+    db: AppDatabase,
+    deviceAddress: String,
+    backgroundService: BackgroundService,
+    onUploadFirmware: () -> Unit,
+) {
     val coroutineScope = rememberCoroutineScope()
 
     var watch by remember { mutableStateOf<Watch?>(null) }
@@ -59,18 +60,8 @@ fun DevicePage(db: AppDatabase, deviceAddress: String, backgroundService: Backgr
             Text(text = "Device address: $deviceAddress")
             Text(text = "Firmware version: ${state!!.firmwareVersion}")
 
-            val pickPictureLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.GetContent()
-            ) { imageUri ->
-                if (imageUri != null) {
-                    coroutineScope.launch {
-                        backgroundService.flashWatchDFU(deviceAddress, imageUri)
-                    }
-                }
-            }
-
-            Button(onClick = { pickPictureLauncher.launch("application/zip") }) {
-                Text(text = "Update firmware")
+            Button(onClick = onUploadFirmware) {
+                Text(text = "Upload firmware")
             }
 
             Spacer(modifier = Modifier.height(10.dp))
