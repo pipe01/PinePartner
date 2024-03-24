@@ -101,7 +101,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
 
             val require = Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent)
 
-            ScriptableObject.putProperty(scope, "params", Parameters(scope, plugin.name, plugin.parameters, deps.db))
+            ScriptableObject.putProperty(scope, "params", Parameters(scope, plugin.id, plugin.parameters, deps.db))
             ScriptableObject.putProperty(scope, "require", require)
             ScriptableObject.putProperty(scope, "timer", require.createInstance(TimerService::class.java, ctx, scope) { })
 

@@ -10,7 +10,7 @@ import org.mozilla.javascript.Undefined
 
 class Parameters(
     private var parentScope: Scriptable?,
-    private val pluginName: String,
+    private val pluginId: String,
     private val parameters: List<Parameter>,
     private val db: AppDatabase,
 ) : Scriptable {
@@ -24,7 +24,7 @@ class Parameters(
         val param = parameters.find { it.name == p0 } ?: return Undefined.instance
 
         return runBlocking {
-            val str = db.pluginDao().getParameterValue(pluginName, p0!!)
+            val str = db.pluginDao().getParameterValue(pluginId, p0!!)
 
             if (str == null) {
                 if (param.defaultValue != null)
