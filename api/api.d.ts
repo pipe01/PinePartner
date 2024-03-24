@@ -112,4 +112,21 @@ declare function require(module: "volume"): VolumeService;
 declare function require(module: "media"): MediaService;
 declare function require(module: "location"): LocationService;
 
-declare const params: Record<string, string>;
+declare const params: Record<string, any>;
+
+declare interface Console {
+    assert(condition?: boolean, ...data: any[]): void;
+    count(label?: string): void;
+    countReset(label?: string): void;
+    debug(...data: any[]): void;
+    error(...data: any[]): void;
+    info(...data: any[]): void;
+    log(...data: any[]): void;
+    time(label?: string): void;
+    timeEnd(label?: string): void;
+    timeLog(label?: string, ...data: any[]): void;
+    trace(...data: any[]): void;
+    warn(...data: any[]): void;
+}
+
+declare const console: Console;
