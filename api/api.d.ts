@@ -112,6 +112,7 @@ declare interface MediaService {
 
 declare interface LocationService {
     getCurrent(priority?: "highAccuracy" | "balanced" | "lowPower" | "passive"): Location
+    getLast(): Location | null
 }
 
 declare interface TimerService {

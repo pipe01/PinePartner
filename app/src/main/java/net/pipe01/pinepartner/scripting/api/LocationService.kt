@@ -40,4 +40,18 @@ class LocationService : ApiScriptableObject(LocationService::class) {
             init(location)
         }
     }
+
+    @SuppressLint("MissingPermission")
+    @JSFunction
+    fun getLast(): LocationAdapter? {
+        val task = fusedLocationClient.lastLocation
+
+        val location = runBlocking {
+            task.await()
+        } ?: return null
+
+        return newObject(LocationAdapter::class).apply {
+            init(location)
+        }
+    }
 }
