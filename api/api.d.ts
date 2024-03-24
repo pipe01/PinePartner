@@ -105,6 +105,12 @@ declare interface LocationService {
     getCurrent(priority?: "highAccuracy" | "balanced" | "lowPower" | "passive"): Location
 }
 
+declare interface TimerService {
+    setInterval(cb: () => void, periodMs: number): number;
+    setTimeout(cb: () => void, delayMs: number): number;
+    clear(id: number): void;
+}
+
 declare function require(module: "watches"): WatchesService;
 declare function require(module: "notifications"): NotificationsService;
 declare function require(module: "http"): HTTPService;
@@ -113,6 +119,7 @@ declare function require(module: "media"): MediaService;
 declare function require(module: "location"): LocationService;
 
 declare const params: Record<string, any>;
+declare const timer: TimerService;
 
 declare interface Console {
     assert(condition?: boolean, ...data: any[]): void;

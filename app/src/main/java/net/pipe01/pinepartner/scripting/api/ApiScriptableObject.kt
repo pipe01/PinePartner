@@ -8,9 +8,9 @@ import net.pipe01.pinepartner.scripting.EventSeverity
 import net.pipe01.pinepartner.scripting.OnLogEvent
 import net.pipe01.pinepartner.scripting.getLogEventStackTrace
 import net.pipe01.pinepartner.utils.Event
+import org.mozilla.javascript.Callable
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
-import org.mozilla.javascript.Function
 import org.mozilla.javascript.ScriptRuntime
 import org.mozilla.javascript.ScriptableObject
 import java.util.concurrent.atomic.AtomicBoolean
@@ -27,7 +27,7 @@ abstract class ApiScriptableObject(private val clazz: KClass<*>) : ScriptableObj
 
     private var isFinalized = AtomicBoolean(false)
 
-    private val listeners = mutableMapOf<Pair<String, Function>, () -> Unit>()
+    private val listeners = mutableMapOf<Pair<String, Callable>, () -> Unit>()
     private val children = mutableListOf<Finalizeable>()
 
     override fun getClassName() = clazz.simpleName!!
@@ -54,7 +54,7 @@ abstract class ApiScriptableObject(private val clazz: KClass<*>) : ScriptableObj
         }
     }
 
-    protected fun <T : Any> addListener(event: Event<T>, eventName: String, cb: Function, adapter: (T) -> Any = { it }) {
+    protected fun <T : Any> addListener(event: Event<T>, eventName: String, cb: Callable, adapter: (T) -> Any = { it }) {
         checkFinalized()
 
         listeners[Pair(eventName, cb)] = event.addListener {
@@ -62,13 +62,13 @@ abstract class ApiScriptableObject(private val clazz: KClass<*>) : ScriptableObj
         }
     }
 
-    protected fun removeListener(eventName: String, cb: Function) {
+    protected fun removeListener(eventName: String, cb: Callable) {
         checkFinalized()
 
         listeners.remove(Pair(eventName, cb))?.invoke()
     }
 
-    protected fun enterAndCall(fn: Function, argsFn: (() -> Array<Any>)? = null) {
+    protected fun enterAndCall(fn: Callable, argsFn: (() -> Array<Any>)? = null) {
         checkFinalized()
 
         launch {

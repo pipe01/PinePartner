@@ -19,6 +19,7 @@ import net.pipe01.pinepartner.scripting.api.MediaService
 import net.pipe01.pinepartner.scripting.api.NotificationsService
 import net.pipe01.pinepartner.scripting.api.Parameters
 import net.pipe01.pinepartner.scripting.api.Require
+import net.pipe01.pinepartner.scripting.api.TimerService
 import net.pipe01.pinepartner.scripting.api.VolumeService
 import net.pipe01.pinepartner.scripting.api.WatchesService
 import net.pipe01.pinepartner.scripting.api.adapters.BLECharacteristicAdapter
@@ -88,6 +89,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, VolumeService::class.java)
             ScriptableObject.defineClass(scope, MediaService::class.java)
             ScriptableObject.defineClass(scope, LocationService::class.java)
+            ScriptableObject.defineClass(scope, TimerService::class.java)
 
             ScriptableObject.defineClass(scope, WatchAdapter::class.java)
             ScriptableObject.defineClass(scope, NotificationAdapter::class.java)
@@ -97,12 +99,15 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
             ScriptableObject.defineClass(scope, PlaybackStateAdapter::class.java)
             ScriptableObject.defineClass(scope, LocationAdapter::class.java)
 
+            val require = Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent)
+
             ScriptableObject.putProperty(scope, "params", Parameters(scope, plugin.name, plugin.parameters, deps.db))
-            ScriptableObject.putProperty(scope, "require", Require(deps, plugin.permissions, contextFactory, dispatcher, ::addEvent))
+            ScriptableObject.putProperty(scope, "require", require)
+            ScriptableObject.putProperty(scope, "timer", require.createInstance(TimerService::class.java, ctx, scope) { })
 
             NativeConsole.init(scope, true, ConsolePrinter(::addEvent))
 
-            script = ctx.compileString(plugin.sourceCode, plugin.id, 0, null)
+            script = ctx.compileString(plugin.sourceCode, plugin.id, 1, null)
         }
     }
 

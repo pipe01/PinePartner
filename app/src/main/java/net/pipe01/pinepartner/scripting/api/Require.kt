@@ -85,11 +85,15 @@ class Require(
         }
     }
 
-    private inline fun <reified T : ApiScriptableObject> createInstance(cx: Context, scope: Scriptable, init: T.() -> Unit): T {
-        return (cx.newObject(scope, T::class.java.simpleName) as T).also {
+    fun <T : ApiScriptableObject> createInstance(clazz: Class<T>, cx: Context, scope: Scriptable, init: T.() -> Unit): T {
+        return (cx.newObject(scope, clazz.simpleName) as T).also {
             it.initSuper(contextFactory, dispatcher, onEvent)
             init(it)
             createdInstances.add(it)
         }
+    }
+
+    private inline fun <reified T : ApiScriptableObject> createInstance(cx: Context, scope: Scriptable, noinline init: T.() -> Unit): T {
+        return createInstance(T::class.java, cx, scope, init)
     }
 }
