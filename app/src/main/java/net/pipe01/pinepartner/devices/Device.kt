@@ -20,6 +20,7 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.zip.ZipInputStream
 
@@ -112,6 +113,28 @@ class Device private constructor(val address: String, private val client: Client
         )
 
         InfiniTime.CurrentTimeService.CURRENT_TIME.bind(services).write(DataByteArray(bytes))
+    }
+
+    suspend fun setCurrentWeather(weather: CurrentWeather) {
+        val buffer = ByteBuffer.allocate(49).order(ByteOrder.LITTLE_ENDIAN)
+
+        // We want local timestamp, not UTC timestamp
+        val timestamp = weather.time.toEpochSecond(ZoneOffset.systemDefault().rules.getOffset(weather.time))
+
+        val locationBytes = weather.location.toByteArray()
+        if (locationBytes.size > MAX_LOCATION_LEN) throw IllegalArgumentException("Location is too long")
+
+        buffer.put(0) // Message type
+        buffer.put(0) // Message version
+        buffer.putLong(timestamp)
+        buffer.putShort((weather.currentTemperature * 100).toInt().toShort())
+        buffer.putShort((weather.minimumTemperature * 100).toInt().toShort())
+        buffer.putShort((weather.maximumTemperature * 100).toInt().toShort())
+        buffer.put(locationBytes)
+        buffer.position(48)
+        buffer.put(weather.icon.id)
+
+        InfiniTime.WeatherService.WEATHER_DATA.bind(services).write(DataByteArray(buffer.array()))
     }
 
     fun getBLEService(uuid: UUID) = services.findService(uuid)

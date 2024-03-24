@@ -43,4 +43,10 @@ object InfiniTime {
 
         val BATTERY_LEVEL = Characteristic(ID, "00002a19-0000-1000-8000-00805f9b34fb")
     }
+
+    object WeatherService {
+        private val ID = "00050000-78fc-48fe-8e23-433b3a1942d0"
+
+        val WEATHER_DATA = Characteristic(ID, "00050001-78fc-48fe-8e23-433b3a1942d0")
+    }
 }

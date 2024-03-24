@@ -5,6 +5,7 @@ declare interface Watch {
     sendNotification(title: string, body: string): void;
     setTime(time: Number | Date): void;
     getService(uuid: string): BLEService | null;
+    setCurrentWeather(weather: Weather): void;
 }
 
 declare interface BLEService {
@@ -52,6 +53,14 @@ declare interface Location {
     get longitude(): number;
     get altitude(): number | null;
     get accuracy(): number | null;
+}
+
+declare type Weather = {
+    temp: number;
+    minTemp: number;
+    maxTemp: number;
+    location: string;
+    icon: "sun" | "fewClouds" | "cloudy" | "heavyClouds" | "cloudsRain" | "rain" | "thunderstorm" | "snow" | "mist";
 }
 
 declare interface WatchesService {
