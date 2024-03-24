@@ -40,8 +40,14 @@ class WatchAdapter : ApiScriptableObject(WatchAdapter::class) {
     }
 
     @JSFunction
-    fun getService(uuid: String): BLEServiceAdapter? {
-        val service = device.getBLEService(UUID.fromString(uuid)) ?: return null
+    fun getService(arg: Any): BLEServiceAdapter? {
+        val uuid = when (arg) {
+            is String -> UUID.fromString(arg)
+            is Int -> UUID.fromString("${arg.toString(16).padStart(8, '0')}-0000-1000-8000-00805F9B34FB")
+            else -> throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid UUID"))
+        }
+
+        val service = device.getBLEService(uuid) ?: return null
 
         return newObject(BLEServiceAdapter::class) {
             init(service)

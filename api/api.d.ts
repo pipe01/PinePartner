@@ -4,7 +4,7 @@ declare interface Watch {
 
     sendNotification(title: string, body: string): void;
     setTime(time: Number | Date): void;
-    getService(uuid: string): BLEService | null;
+    getService(uuid: string | number): BLEService | null;
     setCurrentWeather(weather: Weather): void;
 }
 
