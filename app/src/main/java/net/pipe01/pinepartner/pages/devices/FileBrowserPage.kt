@@ -1,5 +1,8 @@
 package net.pipe01.pinepartner.pages.devices
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -66,6 +70,7 @@ fun FileBrowserPage(
 
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showCreateFileDialog by remember { mutableStateOf(false) }
+    var showUploadFileDialog by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         isLoading = true
@@ -103,6 +108,11 @@ fun FileBrowserPage(
             },
         )
     }
+    if (showUploadFileDialog) {
+        UploadDialog(
+            onCancel = { showUploadFileDialog = false }
+        )
+    }
 
     Column(
         modifier = Modifier.scrollable(rememberScrollState(), Orientation.Vertical),
@@ -126,7 +136,7 @@ fun FileBrowserPage(
                     action(
                         icon = { Icon(Icons.Outlined.FileUpload, contentDescription = "Send file") },
                         text = "Send file",
-                        onClick = { }
+                        onClick = { showUploadFileDialog = true }
                     )
                     action(
                         icon = { Icon(Icons.Outlined.Description, contentDescription = "Create empty file") },
@@ -256,6 +266,38 @@ private fun CreateDialog(
             }
         }
     )
+}
+
+@Composable
+private fun UploadDialog(
+    onCancel: () -> Unit,
+) {
+    var chosenFileUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { fileUri ->
+        if (fileUri != null) {
+            chosenFileUri = fileUri
+        } else {
+            onCancel()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        pickFileLauncher.launch("*/*")
+    }
+
+    if (chosenFileUri != null) {
+        AlertDialog(
+            onDismissRequest = { },
+            confirmButton = { /*TODO*/ },
+            title = { Text(text = "Uploading file") },
+            text = {
+                CircularProgressIndicator()
+            }
+        )
+    }
 }
 
 @Preview(showBackground = true, widthDp = 320, heightDp = 640)

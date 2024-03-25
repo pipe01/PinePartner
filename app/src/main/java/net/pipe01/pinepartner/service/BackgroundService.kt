@@ -37,6 +37,7 @@ import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
 import net.pipe01.pinepartner.scripting.ScriptDependencies
+import java.io.ByteArrayInputStream
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -285,7 +286,24 @@ class BackgroundService : Service() {
         = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
 
     suspend fun writeFile(address: String, path: String, data: ByteArray)
-        = deviceManager.get(address)?.writeFile(path, data, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+        = deviceManager.get(address)?.writeFile(
+        path,
+        ByteArrayInputStream(data),
+        data.size,
+        CoroutineScope(Dispatchers.IO)
+    ) ?: throw ServiceException("Device not found")
+
+    suspend fun sendFile(address: String, path: String, uri: Uri) {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+
+        val size = contentResolver.openFileDescriptor(uri, "r")?.use {
+            it.statSize
+        } ?: throw ServiceException("Failed to get file size")
+
+        contentResolver.openInputStream(uri)?.use {
+            device.writeFile(path, it, size.toInt(), CoroutineScope(Dispatchers.IO))
+        }
+    }
 
     suspend fun createFolder(address: String, path: String)
         = deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")

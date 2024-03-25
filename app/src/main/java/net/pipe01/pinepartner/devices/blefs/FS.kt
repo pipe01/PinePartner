@@ -13,6 +13,7 @@ import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.Instant
@@ -155,7 +156,9 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.writeFile(path: String, data: ByteArray, coroutineScope: CoroutineScope) {
+suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: Int, coroutineScope: CoroutineScope) {
+    val buffer = ByteArray(mtu - 20)
+
     doRequest(
         coroutineScope = coroutineScope,
         onBuildRequest = {
@@ -169,7 +172,7 @@ suspend fun Device.writeFile(path: String, data: ByteArray, coroutineScope: Coro
                 .putShort(pathBytes.size.toShort())
                 .putInt(0) // Start offset
                 .putLong(0) // Modification time
-                .putInt(data.size)
+                .putInt(totalSize)
                 .put(pathBytes)
         },
         onReceiveResponse = { resp, fs ->
@@ -184,12 +187,14 @@ suspend fun Device.writeFile(path: String, data: ByteArray, coroutineScope: Coro
             resp.getLong() // Timestamp
             val bytesLeft = resp.getInt()
 
-            Log.d(TAG, "Write response status $status $offset/${data.size} bytes, $bytesLeft left")
+            Log.d(TAG, "Write response status $status $offset/${totalSize} bytes, $bytesLeft left")
 
             if (bytesLeft == 0) {
                 true
             } else {
-                val chunkSize = bytesLeft.coerceAtMost(mtu - 12)
+                val chunkSize = bytesLeft.coerceAtMost(buffer.size)
+
+                inputStream.read(buffer)
 
                 val continueBuf = ByteBuffer.allocate(12 + chunkSize).order(ByteOrder.LITTLE_ENDIAN)
                 continueBuf.put(0x22)
@@ -197,7 +202,7 @@ suspend fun Device.writeFile(path: String, data: ByteArray, coroutineScope: Coro
                 continueBuf.putShort(0) // Padding
                 continueBuf.putInt(offset)
                 continueBuf.putInt(chunkSize)
-                continueBuf.put(data, offset, chunkSize)
+                continueBuf.put(buffer)
 
                 Log.d(TAG, "Writing $chunkSize bytes")
 
