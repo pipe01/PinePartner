@@ -110,7 +110,15 @@ fun FileBrowserPage(
     }
     if (showUploadFileDialog) {
         UploadDialog(
-            onCancel = { showUploadFileDialog = false }
+            backgroundService = backgroundService,
+            deviceAddress = deviceAddress,
+            path = path,
+            onDone = {
+                showUploadFileDialog = false
+
+                coroutineScope.launch { reload() }
+            },
+            onCancel = { showUploadFileDialog = false },
         )
     }
 
@@ -270,8 +278,14 @@ private fun CreateDialog(
 
 @Composable
 private fun UploadDialog(
+    deviceAddress: String,
+    path: String,
+    backgroundService: BackgroundService,
+    onDone: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     var chosenFileUri by remember { mutableStateOf<Uri?>(null) }
 
     val pickFileLauncher = rememberLauncherForActivityResult(
@@ -279,6 +293,12 @@ private fun UploadDialog(
     ) { fileUri ->
         if (fileUri != null) {
             chosenFileUri = fileUri
+
+            coroutineScope.launch {
+                backgroundService.sendFile(deviceAddress, path, fileUri)
+
+                onDone()
+            }
         } else {
             onCancel()
         }
@@ -292,7 +312,7 @@ private fun UploadDialog(
         AlertDialog(
             onDismissRequest = { },
             confirmButton = { /*TODO*/ },
-            title = { Text(text = "Uploading file") },
+            title = { Text(text = "Uploading file...") },
             text = {
                 CircularProgressIndicator()
             }

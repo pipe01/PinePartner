@@ -159,6 +159,8 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
 suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: Int, coroutineScope: CoroutineScope) {
     val buffer = ByteArray(mtu - 20)
 
+    var sent = 0
+
     doRequest(
         coroutineScope = coroutineScope,
         onBuildRequest = {
@@ -182,12 +184,9 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
             }
 
             val status = resp.get()
-            resp.getShort() // Padding
-            val offset = resp.getInt()
-            resp.getLong() // Timestamp
-            val bytesLeft = resp.getInt()
+            val bytesLeft = totalSize - sent
 
-            Log.d(TAG, "Write response status $status $offset/${totalSize} bytes, $bytesLeft left")
+            Log.d(TAG, "Write status $status, $sent/$totalSize bytes")
 
             if (bytesLeft == 0) {
                 true
@@ -200,7 +199,7 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
                 continueBuf.put(0x22)
                 continueBuf.put(0x01)
                 continueBuf.putShort(0) // Padding
-                continueBuf.putInt(offset)
+                continueBuf.putInt(sent)
                 continueBuf.putInt(chunkSize)
                 continueBuf.put(buffer)
 
@@ -208,7 +207,9 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
 
                 fs.write(DataByteArray(continueBuf.array()))
 
-                bytesLeft - chunkSize == 0
+                sent += chunkSize
+
+                sent == totalSize
             }
         }
     )

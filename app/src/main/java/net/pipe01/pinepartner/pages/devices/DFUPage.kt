@@ -25,9 +25,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.components.Header
-import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.service.BackgroundService
-import kotlin.time.Duration.Companion.seconds
+import net.pipe01.pinepartner.service.TransferProgress
+import net.pipe01.pinepartner.utils.toMinutesSeconds
+import java.time.Duration
 
 @Composable
 fun DFUPage(
@@ -89,18 +90,18 @@ private fun Uploader(
     onFinish: () -> Unit = { },
     onCancel: () -> Unit = { },
 ) {
-    var progress by remember { mutableStateOf<DFUProgress?>(null) }
+    var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
     if (backgroundService == null) {
-        progress = DFUProgress("Test test test", 0.4f, 0.6f, 10000, 135)
+        progress = TransferProgress(0, "Test test test", 0.4f, 10000, Duration.ofSeconds(135), false)
     } else {
         LaunchedEffect(uri) {
             onStart()
 
-            backgroundService.startWatchDFU(address, uri)
+            val transferId = backgroundService.startWatchDFU(address, uri)
 
             while (true) {
-                progress = backgroundService.getDFUProgress(address)
+                progress = backgroundService.getTransferProgress(transferId)
 
                 if (progress?.isDone == true) {
                     onFinish()
@@ -124,7 +125,7 @@ private fun Uploader(
 
             Text(
                 modifier = Modifier.align(Alignment.CenterHorizontally),
-                text = progress!!.stageName,
+                text = progress!!.stage,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -132,11 +133,6 @@ private fun Uploader(
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
                 progress = { progress!!.totalProgress },
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                progress = { progress!!.stageProgress },
             )
 
             if (progress!!.bytesPerSecond != null) {
@@ -148,16 +144,12 @@ private fun Uploader(
                 )
             }
 
-            if (progress!!.secondsLeft != null) {
+            if (progress!!.timeLeft != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-
-                val duration = progress!!.secondsLeft!!.seconds
 
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = duration.toComponents { minutes, seconds, _ ->
-                        "%02d:%02d left".format(minutes, seconds)
-                    },
+                    text = progress!!.timeLeft!!.toMinutesSeconds(),
                 )
             }
 

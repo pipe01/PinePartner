@@ -1,5 +1,6 @@
 package net.pipe01.pinepartner.service
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -16,6 +17,7 @@ import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.provider.OpenableColumns
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
@@ -28,9 +30,9 @@ import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
-import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.devices.blefs.createFolder
+import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.devices.blefs.writeFile
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
@@ -38,8 +40,10 @@ import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
 import net.pipe01.pinepartner.scripting.ScriptDependencies
 import java.io.ByteArrayInputStream
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import kotlin.random.Random
 
 
 class ServiceException : Exception {
@@ -58,7 +62,7 @@ class BackgroundService : Service() {
     private val notifManager = NotificationsManager()
     private lateinit var pluginManager: PluginManager
 
-    private val dfuProgress = mutableMapOf<String, DFUProgress>()
+    private val transferJobs = mutableMapOf<Int, TransferProgress>()
     private val dfuJobs = mutableMapOf<String, Job>()
 
     private var isStarted = false
@@ -240,23 +244,33 @@ class BackgroundService : Service() {
             WatchState(false, "", 0f)
     }
 
-    suspend fun startWatchDFU(address: String, uri: Uri) {
-        dfuProgress.remove(address)
-
+    suspend fun startWatchDFU(address: String, uri: Uri): Int {
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+        val jobId = Random.nextInt()
+
+        transferJobs[jobId] = TransferProgress(jobId, "Starting", 0f, null, null, false)
 
         dfuJobs[address] = CoroutineScope(Dispatchers.IO).launch {
             contentResolver.openInputStream(uri)!!.use { stream ->
                 device.flashDFU(stream, this) {
-                    dfuProgress[address] = it
+                    transferJobs[jobId] = TransferProgress(
+                        jobId,
+                        it.stageName,
+                        it.totalProgress,
+                        it.bytesPerSecond,
+                        it.secondsLeft?.let { Duration.ofSeconds(it.toLong()) },
+                        it.isDone,
+                    )
                 }
             }
         }
+
+        return jobId
     }
 
-    fun getDFUProgress(address: String) = dfuProgress[address]
+    fun getTransferProgress(id: Int) = transferJobs[id]
 
     fun cancelDFU(address: String) = dfuJobs.remove(address)?.cancel()
 
@@ -293,15 +307,26 @@ class BackgroundService : Service() {
         CoroutineScope(Dispatchers.IO)
     ) ?: throw ServiceException("Device not found")
 
+    @SuppressLint("Range")
     suspend fun sendFile(address: String, path: String, uri: Uri) {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
-        val size = contentResolver.openFileDescriptor(uri, "r")?.use {
-            it.statSize
-        } ?: throw ServiceException("Failed to get file size")
+        var size = 0
+        var name = ""
+
+        contentResolver.query(uri, null, null, null, null)?.use {
+            if (!it.moveToFirst()) {
+                throw ServiceException("Failed to get file info")
+            }
+
+            name = it.getString(it.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+            size = it.getInt(it.getColumnIndex(OpenableColumns.SIZE))
+        } ?: throw ServiceException("Failed to get file info")
+
+        val fullPath = joinPaths(path, name)
 
         contentResolver.openInputStream(uri)?.use {
-            device.writeFile(path, it, size.toInt(), CoroutineScope(Dispatchers.IO))
+            device.writeFile(fullPath, it, size, CoroutineScope(Dispatchers.IO))
         }
     }
 
