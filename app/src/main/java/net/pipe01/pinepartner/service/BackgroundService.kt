@@ -32,6 +32,7 @@ import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.devices.blefs.createFolder
 import net.pipe01.pinepartner.devices.blefs.listFiles
+import net.pipe01.pinepartner.devices.blefs.writeFile
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
@@ -282,6 +283,9 @@ class BackgroundService : Service() {
 
     suspend fun listFiles(address: String, path: String)
         = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+
+    suspend fun writeFile(address: String, path: String, data: ByteArray)
+        = deviceManager.get(address)?.writeFile(path, data, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
 
     suspend fun createFolder(address: String, path: String)
         = deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")

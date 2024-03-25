@@ -1,6 +1,8 @@
 package net.pipe01.pinepartner.pages.devices
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,19 +10,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +65,7 @@ fun FileBrowserPage(
     var isLoading by remember { mutableStateOf(true) }
 
     var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var showCreateFileDialog by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         isLoading = true
@@ -71,22 +78,35 @@ fun FileBrowserPage(
         reload()
     }
 
-    if (showCreateFolderDialog) {
-        CreateFolderDialog(
-            onDismissRequest = { showCreateFolderDialog = false },
-            onCreate = { name ->
+    if (showCreateFolderDialog || showCreateFileDialog) {
+        CreateDialog(
+            title = if (showCreateFolderDialog) "Enter new folder name" else "Enter new file name",
+            existingNames = files.map { it.name },
+            onDismissRequest = {
                 showCreateFolderDialog = false
+                showCreateFileDialog = false
+            },
+            onCreate = { name ->
+                val isFolder = showCreateFolderDialog
+                showCreateFolderDialog = false
+                showCreateFileDialog = false
                 isLoading = true
 
                 coroutineScope.launch {
-                    backgroundService.createFolder(deviceAddress, joinPaths(path, name))
+                    if (isFolder) {
+                        backgroundService.createFolder(deviceAddress, joinPaths(path, name))
+                    } else {
+                        backgroundService.writeFile(deviceAddress, joinPaths(path, name), ByteArray(0))
+                    }
                     reload()
                 }
             },
         )
     }
 
-    Column {
+    Column(
+        modifier = Modifier.scrollable(rememberScrollState(), Orientation.Vertical),
+    ) {
         Header(
             modifier = Modifier.padding(horizontal = 16.dp),
             text = "/$path",
@@ -99,14 +119,19 @@ fun FileBrowserPage(
                     icon = Icons.Outlined.Add,
                 ) {
                     action(
-                        icon = { Icon(Icons.Outlined.Folder, contentDescription = "Folder") },
-                        text = "New folder",
+                        icon = { Icon(Icons.Outlined.Folder, contentDescription = "Create folder") },
+                        text = "Create folder",
                         onClick = { showCreateFolderDialog = true }
                     )
                     action(
-                        icon = { Icon(Icons.Outlined.Description, contentDescription = "File") },
+                        icon = { Icon(Icons.Outlined.FileUpload, contentDescription = "Send file") },
                         text = "Send file",
                         onClick = { }
+                    )
+                    action(
+                        icon = { Icon(Icons.Outlined.Description, contentDescription = "Create empty file") },
+                        text = "Create empty file",
+                        onClick = { showCreateFileDialog = true }
                     )
                 }
             }) {
@@ -180,11 +205,15 @@ private fun FileListItem(
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun CreateFolderDialog(
+private fun CreateDialog(
+    title: String,
+    existingNames: List<String>,
     onDismissRequest: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+
+    val isValid by remember { derivedStateOf { name.isNotBlank() && !existingNames.contains(name) } }
 
     val (focusRequester) = FocusRequester.createRefs()
 
@@ -195,13 +224,16 @@ private fun CreateFolderDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = {
-            TextButton(onClick = { onCreate(name) }) {
+            TextButton(
+                enabled = isValid,
+                onClick = { onCreate(name) },
+            ) {
                 Text(text = "Create")
             }
         },
         text = {
             Column {
-                Text(text = "Enter new folder name")
+                Text(text = title)
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -210,9 +242,17 @@ private fun CreateFolderDialog(
                     onValueChange = { name = it },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { onCreate(name) }),
+                    keyboardActions = KeyboardActions(onDone = { if (isValid) onCreate(name) }),
                     modifier = Modifier.focusRequester(focusRequester)
                 )
+
+                if (existingNames.contains(name)) {
+                    Text(
+                        text = "Name already exists",
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     )
