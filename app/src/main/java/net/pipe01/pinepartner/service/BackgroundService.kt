@@ -32,6 +32,7 @@ import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.devices.blefs.createFolder
+import net.pipe01.pinepartner.devices.blefs.deleteFile
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.devices.blefs.writeFile
@@ -306,6 +307,9 @@ class BackgroundService : Service() {
         data.size,
         CoroutineScope(Dispatchers.IO)
     ) ?: throw ServiceException("Device not found")
+
+    suspend fun deleteFile(address: String, path: String)
+        = deviceManager.get(address)?.deleteFile(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
 
     @SuppressLint("Range")
     suspend fun sendFile(address: String, path: String, uri: Uri) {
