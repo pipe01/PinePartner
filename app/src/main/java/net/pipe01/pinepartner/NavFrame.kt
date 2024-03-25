@@ -40,6 +40,7 @@ import net.pipe01.pinepartner.pages.devices.AddDevicePage
 import net.pipe01.pinepartner.pages.devices.DFUPage
 import net.pipe01.pinepartner.pages.devices.DevicePage
 import net.pipe01.pinepartner.pages.devices.DevicesPage
+import net.pipe01.pinepartner.pages.devices.FileBrowserPage
 import net.pipe01.pinepartner.pages.plugins.CodeViewerPage
 import net.pipe01.pinepartner.pages.plugins.ImportPluginPage
 import net.pipe01.pinepartner.pages.plugins.PluginPage
@@ -47,6 +48,8 @@ import net.pipe01.pinepartner.pages.plugins.PluginsPage
 import net.pipe01.pinepartner.pages.settings.NotificationSettingsPage
 import net.pipe01.pinepartner.pages.settings.SettingsPage
 import net.pipe01.pinepartner.service.BackgroundService
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 object Route {
     const val DEVICES = "devices"
@@ -223,6 +226,7 @@ fun NavFrame(
                     db = db,
                     deviceAddress = address!!,
                     onUploadFirmware = { navController.navigate("${Route.DEVICES}/$address/dfu") },
+                    onBrowseFiles = { navController.navigate("${Route.DEVICES}/$address/files") },
                 )
             }
             composable("${Route.DEVICES}/{address}/dfu") {
@@ -235,6 +239,19 @@ fun NavFrame(
                     onCancel = {
                         onShowBottomBar(true)
                         navController.popBackStack()
+                    },
+                )
+            }
+            composable("${Route.DEVICES}/{address}/files?path={path}") {
+                val address = it.arguments?.getString("address")
+                val path = it.arguments?.getString("path")?.let { URLDecoder.decode(it, "utf8") }
+
+                FileBrowserPage(
+                    backgroundService = backgroundService,
+                    deviceAddress = address!!,
+                    path = path ?: "",
+                    onOpenFolder = { newPath ->
+                        navController.navigate("${Route.DEVICES}/$address/files?path=${URLEncoder.encode(newPath, "utf8")}")
                     },
                 )
             }

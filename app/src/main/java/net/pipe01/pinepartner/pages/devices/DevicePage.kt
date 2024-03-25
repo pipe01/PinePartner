@@ -34,6 +34,7 @@ fun DevicePage(
     deviceAddress: String,
     backgroundService: BackgroundService,
     onUploadFirmware: () -> Unit,
+    onBrowseFiles: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -62,6 +63,10 @@ fun DevicePage(
 
             Button(onClick = onUploadFirmware) {
                 Text(text = "Upload firmware")
+            }
+
+            Button(onClick = onBrowseFiles) {
+                Text(text = "Browse files")
             }
 
             Spacer(modifier = Modifier.height(10.dp))

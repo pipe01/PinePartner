@@ -30,6 +30,8 @@ import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.devices.WatchState
+import net.pipe01.pinepartner.devices.blefs.createFolder
+import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
@@ -277,4 +279,10 @@ class BackgroundService : Service() {
     suspend fun reloadPlugins() {
         pluginManager.reload()
     }
+
+    suspend fun listFiles(address: String, path: String)
+        = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+
+    suspend fun createFolder(address: String, path: String)
+        = deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
 }

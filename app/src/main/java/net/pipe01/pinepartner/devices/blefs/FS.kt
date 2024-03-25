@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.devices.Device
@@ -15,6 +16,33 @@ import java.nio.ByteOrder
 import java.time.Instant
 
 private const val TAG = "BLEFS"
+
+fun joinPaths(path1: String, path2: String): String {
+    return cleanPath(if (path1 == "") {
+        path2
+    } else {
+        "$path1/$path2"
+    })
+}
+
+fun cleanPath(path: String): String {
+    val parts = ArrayDeque(path.split("/"))
+
+    while (!parts.isEmpty()) {
+        when (parts.last()) {
+            "", "." -> parts.removeLast()
+            ".." -> {
+                parts.removeLast()
+                if (!parts.isEmpty()) {
+                    parts.removeLast()
+                }
+            }
+            else -> break
+        }
+    }
+
+    return parts.joinToString("/")
+}
 
 @SuppressLint("MissingPermission")
 private suspend fun Device.doRequest(
@@ -42,6 +70,7 @@ private suspend fun Device.doRequest(
 
     start.await()
 
+    delay(1000)
     val request = onBuildRequest()
     fileService.write(DataByteArray(request.array()))
 
@@ -109,49 +138,6 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
             }
         }
     )
-//
-//    val job = coroutineScope.launch {
-//        fileService
-//            .getNotifications()
-//            .onStart { start.complete(Unit) }
-//            .collect {
-//                val buf = ByteBuffer.wrap(it.value).order(ByteOrder.LITTLE_ENDIAN)
-//
-//                if (buf.get() != 0x11.toByte()) {
-//                    Log.e(TAG, "Invalid file response")
-//                    return@collect
-//                }
-//
-//                val status = buf.get()
-//                buf.getShort() // Padding
-//                val offset = buf.getInt()
-//                val totalSize = buf.getInt()
-//                val chunkSize = buf.getInt()
-//
-//                if (file == null) {
-//                    file = ByteArray(totalSize)
-//                }
-//
-//                it.value.copyInto(file!!, offset, buf.position(), buf.position() + chunkSize)
-//
-//                Log.d(TAG, "Read response $offset/$totalSize bytes")
-//
-//                val bytesRemaining = totalSize - offset - chunkSize
-//
-//                if (bytesRemaining == 0) {
-//                    done.complete(Unit)
-//                } else {
-//                    val continueBuf = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
-//                    continueBuf.put(0x12)
-//                    continueBuf.put(0x01)
-//                    continueBuf.putShort(0) // Padding
-//                    continueBuf.putInt(offset + chunkSize)
-//                    continueBuf.putInt(wantChunkSize)
-//
-//                    fileService.write(DataByteArray(continueBuf.array()))
-//                }
-//            }
-//    }
 
     Log.d(TAG, "File received, ${file?.size} bytes")
     return file ?: throw IllegalStateException("No file received")
@@ -280,7 +266,8 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 
             files.add(
                 File(
-                    path = String(pathBuf),
+                    name = String(pathBuf),
+                    fullPath = joinPaths(path, String(pathBuf)),
                     isDirectory = flags and 0x01u != 0u,
                     modTime = Instant.ofEpochMilli(timestampNanos.toLong() / 1_000_000),
                     size = size
@@ -292,4 +279,36 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
     )
 
     return files
+}
+
+@SuppressLint("MissingPermission")
+suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) {
+    doRequest(
+        coroutineScope = coroutineScope,
+        onBuildRequest = {
+            val pathBytes = path.toByteArray()
+
+            ByteBuffer
+                .allocate(16 + pathBytes.size)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(0x40)
+                .put(0) // Padding
+                .putShort(pathBytes.size.toShort())
+                .putInt(0) // Padding
+                .putLong(0) // Timestamp
+                .put(pathBytes)
+        },
+        onReceiveResponse = { resp, _ ->
+            if (resp.get() != 0x41.toByte()) {
+                Log.e(TAG, "Invalid create folder response")
+                return@doRequest true
+            }
+
+            val status = resp.get()
+
+            Log.d(TAG, "Create folder status $status")
+
+            true
+        }
+    )
 }
