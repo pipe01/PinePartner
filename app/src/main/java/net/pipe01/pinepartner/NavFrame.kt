@@ -242,16 +242,24 @@ fun NavFrame(
                     },
                 )
             }
-            composable("${Route.DEVICES}/{address}/files?path={path}") {
-                val address = it.arguments?.getString("address")
-                val path = it.arguments?.getString("path")?.let { URLDecoder.decode(it, "utf8") }
+            composable("${Route.DEVICES}/{address}/files?path={path}") { route ->
+                val address = route.arguments?.getString("address")
+                val path = route.arguments?.getString("path")?.let { URLDecoder.decode(it, "utf8") }
 
                 FileBrowserPage(
                     backgroundService = backgroundService,
                     deviceAddress = address!!,
                     path = path ?: "",
                     onOpenFolder = { newPath ->
-                        navController.navigate("${Route.DEVICES}/$address/files?path=${URLEncoder.encode(newPath, "utf8")}")
+                        val newPathEnc = URLEncoder.encode(newPath, "utf8")
+
+                        if (navController.previousBackStackEntry?.destination?.id == route.destination.id
+                            && (navController.previousBackStackEntry?.arguments?.getString("path") ?: "") == newPathEnc
+                        ) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate("${Route.DEVICES}/$address/files?path=${newPathEnc}")
+                        }
                     },
                 )
             }
