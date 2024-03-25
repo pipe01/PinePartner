@@ -25,7 +25,7 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 
 @SuppressLint("MissingPermission")
-class Device private constructor(val address: String, private val client: ClientBleGatt, private val services: ClientBleGattServices) {
+class Device private constructor(val address: String, private val client: ClientBleGatt, val services: ClientBleGattServices) {
     private val TAG = "Device"
 
     private val callMutex = Mutex()
@@ -35,14 +35,23 @@ class Device private constructor(val address: String, private val client: Client
     private var batteryLevel: Float? = null
     private var batteryLevelCheckTime: LocalDateTime? = null
 
+    val mtu
+        get() = client.mtu.value
+
     val isConnected
         get() = client.isConnected
 
     companion object {
         suspend fun connect(context: Context, coroutineScope: CoroutineScope, address: String): Device {
-            val client = ClientBleGatt.connect(context, address, coroutineScope)
+            val client = ClientBleGatt.connect(
+                context = context,
+                macAddress = address,
+                scope = coroutineScope,
+            )
 
-            Log.d("Device", "Connected to $address: ${client.isConnected}")
+            client.requestMtu(517) // Needed for BLEFS
+
+            Log.d("Device", "Connected to $address: ${client.isConnected}, MTU: ${client.mtu.value}")
 
             //TODO: Handle case where connection fails but no exception is thrown
             val services = client.discoverServices()
@@ -172,7 +181,8 @@ class Device private constructor(val address: String, private val client: Client
                 val expected = expect.joinToString(":") { "%02x".format(it) }
 
                 throw IllegalArgumentException(
-                    "Invalid response ${got}, expected ${expected}")
+                    "Invalid response ${got}, expected ${expected}"
+                )
             }
         }
 
@@ -247,13 +257,15 @@ class Device private constructor(val address: String, private val client: Client
 
                 val bytesLeft = binFile.size - i
 
-                onProgress(DFUProgress(
-                    "Transferring firmware",
-                    progress,
-                    0.05f + progress * 0.9f,
-                    bytesPerSecond.toLong(),
-                    (bytesLeft / bytesPerSecond).toInt(),
-                ))
+                onProgress(
+                    DFUProgress(
+                        "Transferring firmware",
+                        progress,
+                        0.05f + progress * 0.9f,
+                        bytesPerSecond.toLong(),
+                        (bytesLeft / bytesPerSecond).toInt(),
+                    )
+                )
             }
 
             val until = if (i + 20 > binFile.size) binFile.size else i + 20

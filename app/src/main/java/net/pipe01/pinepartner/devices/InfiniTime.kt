@@ -49,4 +49,11 @@ object InfiniTime {
 
         val WEATHER_DATA = Characteristic(ID, "00050001-78fc-48fe-8e23-433b3a1942d0")
     }
+
+    object FileSystemService {
+        private val ID = "0000FEBB-0000-1000-8000-00805F9B34FB"
+
+        val VERSION = Characteristic(ID, "ADAF0100-4669-6C65-5472-616E73666572")
+        val RAW_TRANSFER = Characteristic(ID, "ADAF0200-4669-6C65-5472-616E73666572")
+    }
 }
