@@ -7,6 +7,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
 import no.nordicsemi.android.common.core.DataByteArray
@@ -16,6 +18,9 @@ import java.nio.ByteOrder
 import java.time.Instant
 
 private const val TAG = "BLEFS"
+
+//TODO: Make this per-device
+private val mutex = Mutex()
 
 fun joinPaths(path1: String, path2: String): String {
     return cleanPath(if (path1 == "") {
@@ -55,27 +60,30 @@ private suspend fun Device.doRequest(
     val done = CompletableDeferred<Unit>()
     val start = CompletableDeferred<Unit>()
 
-    val job = coroutineScope.launch {
-        fileService
-            .getNotifications()
-            .onStart { start.complete(Unit) }
-            .collect {
-                val buf = ByteBuffer.wrap(it.value).order(ByteOrder.LITTLE_ENDIAN)
+    mutex.withLock {
+        val job = coroutineScope.launch {
+            fileService
+                .getNotifications()
+                .onStart { start.complete(Unit) }
+                .collect {
+                    val buf = ByteBuffer.wrap(it.value).order(ByteOrder.LITTLE_ENDIAN)
 
-                if (onReceiveResponse(buf, fileService)) {
-                    done.complete(Unit)
+                    if (onReceiveResponse(buf, fileService)) {
+                        done.complete(Unit)
+                    }
                 }
-            }
+        }
+
+        start.await()
+
+        delay(200) // Make sure the notifications are coming through
+
+        val request = onBuildRequest()
+        fileService.write(DataByteArray(request.array()))
+
+        done.await()
+        job.cancel()
     }
-
-    start.await()
-
-    delay(1000)
-    val request = onBuildRequest()
-    fileService.write(DataByteArray(request.array()))
-
-    done.await()
-    job.cancel()
 }
 
 @SuppressLint("MissingPermission")
