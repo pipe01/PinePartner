@@ -23,11 +23,13 @@ private const val TAG = "BLEFS"
 private val mutex = Mutex()
 
 fun joinPaths(path1: String, path2: String): String {
-    return cleanPath(if (path1 == "") {
-        path2
-    } else {
-        "$path1/$path2"
-    })
+    return cleanPath(
+        if (path1 == "") {
+            path2
+        } else {
+            "$path1/$path2"
+        }
+    )
 }
 
 fun cleanPath(path: String): String {
@@ -42,6 +44,7 @@ fun cleanPath(path: String): String {
                     parts.removeLast()
                 }
             }
+
             else -> break
         }
     }
@@ -272,15 +275,17 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
             val pathBuf = ByteArray(pathLength.toInt())
             resp.get(pathBuf)
 
-            files.add(
-                File(
-                    name = String(pathBuf),
-                    fullPath = joinPaths(path, String(pathBuf)),
-                    isDirectory = flags and 0x01u != 0u,
-                    modTime = Instant.ofEpochMilli(timestampNanos.toLong() / 1_000_000),
-                    size = size
+            if (entryNumber < totalEntries) {
+                files.add(
+                    File(
+                        name = String(pathBuf),
+                        fullPath = joinPaths(path, String(pathBuf)),
+                        isDirectory = flags and 0x01u != 0u,
+                        modTime = Instant.ofEpochMilli(timestampNanos.toLong() / 1_000_000),
+                        size = size
+                    )
                 )
-            )
+            }
 
             entryNumber == totalEntries
         }
