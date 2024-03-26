@@ -7,7 +7,6 @@ import java.time.Duration
 
 @Parcelize
 data class TransferProgress(
-    val stage: String,
     @FloatRange(0.0, 1.0) val totalProgress: Float,
     val bytesPerSecond: Long?,
     val timeLeft: Duration?,

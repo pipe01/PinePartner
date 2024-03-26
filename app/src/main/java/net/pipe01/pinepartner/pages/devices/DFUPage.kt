@@ -93,7 +93,7 @@ private fun Uploader(
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
     if (backgroundService == null) {
-        progress = TransferProgress("Test test test", 0.4f, 10000, Duration.ofSeconds(135), false)
+        progress = TransferProgress(0.4f, 10000, Duration.ofSeconds(135), false)
     } else {
         LaunchedEffect(uri) {
             onStart()
@@ -122,11 +122,6 @@ private fun Uploader(
             onFinish()
         } else if (progress != null) {
             BackHandler { }
-
-            Text(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                text = progress!!.stage,
-            )
 
             Spacer(modifier = Modifier.height(16.dp))
 

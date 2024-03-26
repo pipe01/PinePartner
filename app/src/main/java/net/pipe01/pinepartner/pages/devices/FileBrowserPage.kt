@@ -457,7 +457,7 @@ private fun UploadDialog(
                             modifier = Modifier
                                 .padding(vertical = 8.dp)
                                 .align(Alignment.CenterHorizontally),
-                            text = lastProgress!!.stage,
+                            text = "Uploading file...",
                         )
 
                         LinearProgressIndicator(progress = { lastProgress!!.totalProgress })

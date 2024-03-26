@@ -251,13 +251,12 @@ class BackgroundService : Service() {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
         val jobId = Random.nextInt()
 
-        transferJobs[jobId] = TransferProgress("Starting", 0f, null, null, false)
+        transferJobs[jobId] = TransferProgress(0f, null, null, false)
 
         dfuJobs[address] = CoroutineScope(Dispatchers.IO).launch {
             contentResolver.openInputStream(uri)!!.use { stream ->
                 device.flashDFU(stream, this) {
                     transferJobs[jobId] = TransferProgress(
-                        it.stageName,
                         it.totalProgress,
                         it.bytesPerSecond,
                         it.secondsLeft?.let { Duration.ofSeconds(it.toLong()) },
@@ -327,13 +326,7 @@ class BackgroundService : Service() {
         contentResolver.openInputStream(uri)?.use { stream ->
             device.writeFile(fullPath, stream, size, CoroutineScope(Dispatchers.IO)) {
                 if (jobId != null) {
-                    transferJobs[jobId] = TransferProgress(
-                        "Sending",
-                        it.totalProgress,
-                        it.bytesPerSecond,
-                        it.timeLeft,
-                        it.isDone,
-                    )
+                    transferJobs[jobId] = it
                 }
             }
         }
