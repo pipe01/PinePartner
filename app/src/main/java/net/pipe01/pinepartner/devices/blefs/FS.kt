@@ -157,7 +157,8 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
 
 @SuppressLint("MissingPermission")
 suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: Int, coroutineScope: CoroutineScope) {
-    val buffer = ByteArray(mtu - 20)
+    val headerSize = 12
+    val buffer = ByteArray(mtu - headerSize)
 
     var sent = 0
 
@@ -179,7 +180,7 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
         },
         onReceiveResponse = { resp, fs ->
             if (resp.get() != 0x21.toByte()) {
-                Log.e(TAG, "Invalid file response")
+                Log.e(TAG, "Invalid file response 0x${resp.get().toUInt().toString(16)}")
                 return@doRequest true
             }
 
@@ -195,13 +196,13 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
 
                 inputStream.read(buffer)
 
-                val continueBuf = ByteBuffer.allocate(12 + chunkSize).order(ByteOrder.LITTLE_ENDIAN)
+                val continueBuf = ByteBuffer.allocate(headerSize + chunkSize).order(ByteOrder.LITTLE_ENDIAN)
                 continueBuf.put(0x22)
                 continueBuf.put(0x01)
                 continueBuf.putShort(0) // Padding
                 continueBuf.putInt(sent)
                 continueBuf.putInt(chunkSize)
-                continueBuf.put(buffer)
+                continueBuf.put(buffer, 0, chunkSize)
 
                 Log.d(TAG, "Writing $chunkSize bytes")
 
