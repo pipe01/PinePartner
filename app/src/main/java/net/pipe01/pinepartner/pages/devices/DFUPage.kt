@@ -127,8 +127,15 @@ private fun Uploader(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            Text(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                text = "Uploading firmware: ${(progress!!.totalProgress * 100).toInt()}%",
+            )
+
             LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
                 progress = { progress!!.totalProgress },
             )
 

@@ -457,7 +457,7 @@ private fun UploadDialog(
                                 modifier = Modifier
                                     .padding(vertical = 8.dp)
                                     .align(Alignment.CenterHorizontally),
-                                text = "Uploading file: " + "%.0f%%".format(lastProgress!!.totalProgress * 100),
+                                text = "Uploading file: ${(lastProgress!!.totalProgress * 100).toInt()}%",
                             )
 
                             LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
