@@ -7,9 +7,9 @@ import java.util.Timer
 import java.util.TimerTask
 
 class ProgressReporter(
-    private val totalSize: Long,
+    var totalSize: Long,
     private val onProgress: (TransferProgress) -> Unit,
-    private val reportInterval: Duration = Duration.ofSeconds(1),
+    reportInterval: Duration = Duration.ofSeconds(1),
 ): Closeable {
     private val timer = Timer()
     private var sent: Long = 0
@@ -24,10 +24,10 @@ class ProgressReporter(
                 val elapsed = now - lastSentTime
                 lastSentTime = now
 
-                val bytesPerMS = (sent - lastSent) / elapsed
+                val bytesPerMS = if (elapsed == 0L) 0 else (sent - lastSent) / elapsed
 
                 onProgress(TransferProgress(
-                    totalProgress = sent.toFloat() / totalSize,
+                    totalProgress = if (totalSize == 0L) 0f else sent.toFloat() / totalSize,
                     bytesPerSecond = bytesPerMS * 1000,
                     timeLeft = if (bytesPerMS > 0) Duration.ofMillis((totalSize - sent) / bytesPerMS) else null,
                     isDone = false,
@@ -46,7 +46,7 @@ class ProgressReporter(
         timer.cancel()
     }
 
-    fun sentBytes(count: Long) {
+    fun addBytes(count: Long) {
         sent += count
     }
 }

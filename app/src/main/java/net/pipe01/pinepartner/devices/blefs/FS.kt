@@ -2,17 +2,14 @@ package net.pipe01.pinepartner.devices.blefs
 
 import android.annotation.SuppressLint
 import android.util.Log
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
@@ -23,10 +20,11 @@ import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
 import java.io.Closeable
 import java.io.InputStream
+import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "BLEFS"
 
@@ -72,19 +70,22 @@ private class RequestChannel(
     coroutineScope: CoroutineScope,
 ) : Closeable {
     private val channel = Channel<ByteArray>(Channel.UNLIMITED)
-
     private val notifJob: Job
+
+    private var storedResponse = AtomicReference<ByteBuffer?>(null)
+
+    private val tag = "RequestChannel"
 
     init {
         notifJob = coroutineScope.launch {
             characteristic
                 .getNotifications()
                 .onCompletion {
-                    Log.d(TAG, "Notifications done")
+                    Log.d(tag, "Notifications done")
                     channel.close()
                 }
                 .collect {
-                    Log.d(TAG, "Notification: ${it.value.joinToHexString()}")
+                    Log.d(tag, "Notification: ${it.value.joinToHexString()}")
                     channel.send(it.value)
                 }
         }
@@ -95,35 +96,35 @@ private class RequestChannel(
     }
 
     @SuppressLint("MissingPermission")
-    suspend fun send(expectCommand: Byte, req: ByteArray): ByteBuffer {
-        Log.d(TAG, "Sending request 0x${expectCommand.toUInt().toString(16)}")
+    suspend fun send(expectCommand: Byte, req: ByteArray, keepResponse: Boolean = false): ByteBuffer {
+        Log.d(tag, "Sending request 0x${expectCommand.toUInt().toString(16)}")
 
         delay(200) // Wait for notification reception to start
 
         var triesLeft = 3
 
         while (triesLeft > 0) {
-            Log.d(TAG, "Sending request, tries left: $triesLeft")
+            Log.d(tag, "Sending request, tries left: $triesLeft")
 
             triesLeft--
 
             try {
                 characteristic.write(DataByteArray(req))
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to write request", e)
+                Log.e(tag, "Failed to write request", e)
 
                 delay(500)
                 continue
             }
 
-            Log.d(TAG, "Request sent, waiting for response")
+            Log.d(tag, "Request sent, waiting for response")
 
             try {
                 val data = withTimeout(2000) {
                     channel.receive()
                 }
 
-                Log.d(TAG, "Received response: ${data.joinToHexString()}")
+                Log.d(tag, "Received response: ${data.joinToHexString()}")
 
                 val buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
 
@@ -132,9 +133,13 @@ private class RequestChannel(
                     throw BLEFSException("Invalid response 0x${command.toUInt().toString(16)}")
                 }
 
+                if (keepResponse) {
+                    storedResponse.set(buffer)
+                }
+
                 return buffer
             } catch (e: TimeoutCancellationException) {
-                Log.e(TAG, "Timeout waiting for response")
+                Log.e(tag, "Timeout waiting for response")
 
                 delay(500)
             }
@@ -144,16 +149,26 @@ private class RequestChannel(
     }
 
     suspend fun drain(expectCommand: Byte, onReceive: suspend (ByteBuffer) -> Boolean) {
-        Log.d(TAG, "Draining responses")
+        Log.d(tag, "Draining responses")
+
+        storedResponse.getAndSet(null)?.let {
+            Log.d(tag, "Using stored response")
+
+            // We don't need to check the command here since we already did when storing the response
+
+            if (!onReceive(it)) {
+                return
+            }
+        }
 
         while (true) {
             val data = channel.receiveCatching()
             if (!data.isSuccess) {
-                Log.d(TAG, "Channel closed")
+                Log.d(tag, "Channel closed")
                 break
             }
 
-            Log.d(TAG, "Received response: ${data.getOrThrow().joinToHexString()}")
+            Log.d(tag, "Received response: ${data.getOrThrow().joinToHexString()}")
 
             val buffer = ByteBuffer.wrap(data.getOrThrow()).order(ByteOrder.LITTLE_ENDIAN)
 
@@ -163,7 +178,7 @@ private class RequestChannel(
             }
 
             if (!onReceive(buffer)) {
-                Log.d(TAG, "Drain done")
+                Log.d(tag, "Drain done")
                 break
             }
         }
@@ -171,77 +186,21 @@ private class RequestChannel(
 }
 
 @SuppressLint("MissingPermission")
-private suspend fun Device.doRequest(
-    name: String,
+suspend fun Device.readFile(
+    path: String,
+    output: OutputStream,
     coroutineScope: CoroutineScope,
-    onProgress: (TransferProgress) -> Unit = { },
-    onBuildRequest: suspend () -> ByteBuffer,
-    onReceiveResponse: suspend (ByteBuffer, ClientBleGattCharacteristic) -> Boolean,
-    onGetProgress: (() -> Progress)? = null,
+    onProgress: (TransferProgress) -> Unit = { }
 ) {
-    val fileService = InfiniTime.FileSystemService.RAW_TRANSFER.bind(services)
+    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
-    val done = CompletableDeferred<Unit>()
-
-    Log.d(TAG, "Starting request $name")
-
-    onProgress(TransferProgress(0f, null, null, false))
-
-    mutex.withLock {
-        val channel = RequestChannel(fileService, coroutineScope)
-
-        coroutineScope.launch {
-            var lastSentBytes = 0
-
-            while (true) {
-                delay(1000)
-
-                val progress = onGetProgress?.invoke()
-
-                if (progress != null) {
-                    val bytesPerSecond = progress.sent - lastSentBytes
-                    lastSentBytes = progress.sent
-
-                    onProgress(
-                        TransferProgress(
-                            progress.sent.toFloat() / progress.total,
-                            bytesPerSecond.toLong(),
-                            if (bytesPerSecond > 0) Duration.ofSeconds(((progress.total - progress.sent) / bytesPerSecond).toLong()) else null,
-                            false
-                        )
-                    )
-                }
-            }
-        }
-
-        val request = onBuildRequest().array()
-        fileService.write(DataByteArray(request))
-
-        done.await()
-        coroutineScope.cancel()
-    }
-
-    onProgress(TransferProgress(1f, null, null, true))
-
-    Log.d(TAG, "Request $name done")
-}
-
-@SuppressLint("MissingPermission")
-suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope, onProgress: (TransferProgress) -> Unit = { }): ByteArray {
-    var file: ByteArray? = null
+    val pathBytes = path.toByteArray()
     val wantChunkSize = mtu - 12
 
-    var receivedBytes = 0
-
-    doRequest(
-        name = "readFile",
-        coroutineScope = coroutineScope,
-        onProgress = onProgress,
-        onGetProgress = { Progress(receivedBytes, file?.size ?: 0) },
-        onBuildRequest = {
-            val pathBytes = path.toByteArray()
-
-            ByteBuffer
+    ProgressReporter(0, onProgress).use { reporter ->
+        var resp = channel.send(
+            expectCommand = 0x11,
+            req = ByteBuffer
                 .allocate(12 + pathBytes.size)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .put(0x10)
@@ -250,51 +209,45 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope, onProg
                 .putInt(0)
                 .putInt(wantChunkSize)
                 .put(pathBytes)
-        },
-        onReceiveResponse = { resp, fs ->
-            if (resp.get() != 0x11.toByte()) {
-                Log.e(TAG, "Invalid file response")
-                return@doRequest true
-            }
+                .array(),
+        )
 
+        while (true) {
             val status = resp.get()
             resp.getShort() // Padding
             val offset = resp.getInt()
             val totalSize = resp.getInt()
             val chunkSize = resp.getInt()
 
-            if (file == null) {
-                file = ByteArray(totalSize)
-            }
+            reporter.totalSize = totalSize.toLong()
 
-            resp.get(file!!, offset, chunkSize)
-            receivedBytes += chunkSize
+            val chunk = ByteArray(chunkSize)
+            resp.get(chunk)
+
+            output.write(chunk)
+            reporter.addBytes(chunkSize.toLong())
 
             Log.d(TAG, "Read response $offset/$totalSize bytes")
 
             val bytesRemaining = totalSize - offset - chunkSize
 
             if (bytesRemaining == 0) {
-                true
-            } else {
-                val continueBuf = ByteBuffer
+                break
+            }
+
+            resp = channel.send(
+                expectCommand = 0x11,
+                req = ByteBuffer
                     .allocate(12)
                     .order(ByteOrder.LITTLE_ENDIAN)
                     .put(0x12)
                     .put(0x01)
                     .putShort(0) // Padding
                     .putInt(offset + chunkSize)
-                    .putInt(wantChunkSize)
-
-                fs.write(DataByteArray(continueBuf.array()))
-
-                false
-            }
+                    .putInt(wantChunkSize).array()
+            )
         }
-    )
-
-    Log.d(TAG, "File received, ${file?.size} bytes")
-    return file ?: throw IllegalStateException("No file received")
+    }
 }
 
 @SuppressLint("MissingPermission")
@@ -359,7 +312,7 @@ suspend fun Device.writeFile(
                 Log.d(TAG, "Writing $readNum bytes")
 
                 sent += readNum
-                reporter.sentBytes(readNum.toLong())
+                reporter.addBytes(readNum.toLong())
 
                 resp = channel.send(0x21, continueBuf.array())
             }
@@ -369,32 +322,21 @@ suspend fun Device.writeFile(
 
 @SuppressLint("MissingPermission")
 suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) {
-    doRequest(
-        name = "deleteFile",
-        coroutineScope = coroutineScope,
-        onBuildRequest = {
-            val pathBytes = path.toByteArray()
+    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
-            ByteBuffer
-                .allocate(4 + pathBytes.size)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .put(0x30)
-                .put(0)
-                .putShort(pathBytes.size.toShort())
-                .put(pathBytes)
-        },
-        onReceiveResponse = { resp, _ ->
-            if (resp.get() != 0x31.toByte()) {
-                Log.e(TAG, "Invalid delete response")
-                return@doRequest true
-            }
+    val pathBytes = path.toByteArray()
 
-            val status = resp.get()
-
-            Log.d(TAG, "Delete status $status")
-
-            true
-        }
+    //TODO: Check status
+    channel.send(
+        0x31,
+        ByteBuffer
+            .allocate(4 + pathBytes.size)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .put(0x30)
+            .put(0)
+            .putShort(pathBytes.size.toShort())
+            .put(pathBytes)
+            .array()
     )
 }
 
@@ -455,33 +397,22 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 
 @SuppressLint("MissingPermission")
 suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) {
-    doRequest(
-        name = "createFolder",
-        coroutineScope = coroutineScope,
-        onBuildRequest = {
-            val pathBytes = path.toByteArray()
+    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
-            ByteBuffer
-                .allocate(16 + pathBytes.size)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .put(0x40)
-                .put(0) // Padding
-                .putShort(pathBytes.size.toShort())
-                .putInt(0) // Padding
-                .putLong(0) // Timestamp
-                .put(pathBytes)
-        },
-        onReceiveResponse = { resp, _ ->
-            if (resp.get() != 0x41.toByte()) {
-                Log.e(TAG, "Invalid create folder response")
-                return@doRequest true
-            }
+    val pathBytes = path.toByteArray()
 
-            val status = resp.get()
-
-            Log.d(TAG, "Create folder status $status")
-
-            true
-        }
+    //TODO: Check status
+    channel.send(
+        expectCommand = 0x41,
+        req = ByteBuffer
+            .allocate(16 + pathBytes.size)
+            .order(ByteOrder.LITTLE_ENDIAN)
+            .put(0x40)
+            .put(0) // Padding
+            .putShort(pathBytes.size.toShort())
+            .putInt(0) // Padding
+            .putLong(0) // Timestamp
+            .put(pathBytes)
+            .array()
     )
 }
