@@ -44,7 +44,7 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.service.BackgroundService
-import net.pipe01.pinepartner.utils.BoxWithFAB
+import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 
 
 @Composable

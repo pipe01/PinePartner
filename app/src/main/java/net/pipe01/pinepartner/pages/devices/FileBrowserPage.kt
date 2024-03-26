@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
@@ -23,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
@@ -32,7 +32,6 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -71,6 +70,7 @@ import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 import net.pipe01.pinepartner.utils.composables.ExpandableFAB
+import net.pipe01.pinepartner.utils.composables.PopupDialog
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Instant
 import kotlin.random.Random
@@ -93,6 +93,7 @@ fun FileBrowserPage(
     var showCreateFileDialog by remember { mutableStateOf(false) }
     var showUploadFileDialog by remember { mutableStateOf(false) }
     var showOpenFileDialog by remember { mutableStateOf<File?>(null) }
+    var showConfirmDeleteDialog by remember { mutableStateOf<List<File>?>(null) }
 
     suspend fun reload() {
         isLoading = true
@@ -142,9 +143,26 @@ fun FileBrowserPage(
             onCancel = { showUploadFileDialog = false },
         )
     } else if (showOpenFileDialog != null) {
-        OpenFileDialog(
+        FileActionsDialog(
             file = showOpenFileDialog!!,
             onDismissRequest = { showOpenFileDialog = null },
+        )
+    } else if (showConfirmDeleteDialog != null) {
+        ConfirmDeleteDialog(
+            files = showConfirmDeleteDialog!!,
+            onDone = {
+                showConfirmDeleteDialog = null
+
+                coroutineScope.launch {
+                    reload()
+                }
+            },
+            onCancel = {
+                showConfirmDeleteDialog = null
+            },
+            onDeleteFile = {
+                backgroundService.deleteFile(deviceAddress, it.fullPath)
+            },
         )
     }
 
@@ -205,15 +223,8 @@ fun FileBrowserPage(
                 selected = selectedFiles,
                 onCancel = { selectedFiles.clear() },
                 onDelete = {
-                    isLoading = true
-
-                    coroutineScope.launch {
-                        selectedFiles.forEach {
-                            backgroundService.deleteFile(deviceAddress, it.fullPath)
-                        }
-                        selectedFiles.clear()
-                        reload()
-                    }
+                    showConfirmDeleteDialog = selectedFiles.toList()
+                    selectedFiles.clear()
                 }
             )
         }
@@ -527,45 +538,96 @@ private fun UploadDialog(
 }
 
 @Composable
-private fun OpenFileDialog(
+private fun FileActionsDialog(
     file: File,
     onDismissRequest: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = { },
+    PopupDialog(
         title = {
             SelectionContainer {
-                Text(text = file.fullPath)
+                Text(text = file.name)
             }
         },
-        text = {
-            Column {
-                HorizontalDivider()
+        onDismissRequest = onDismissRequest,
+    ) {
+        action(Icons.Filled.Download, "Download to phone") {
 
-                Spacer(modifier = Modifier.height(16.dp))
+        }
+        action(Icons.Filled.Delete, "Delete") {
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { }
-                        .padding(16.dp),
-                ) {
-                    Icon(Icons.Filled.Download, contentDescription = "Download")
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = "Download to phone")
-                }
-            }
-        },
-    )
+        }
+    }
 }
 
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
-private fun OpenFileDialogPreview() {
-    OpenFileDialog(
+private fun FileActionsDialogPreview() {
+    FileActionsDialog(
         file = File("test.txt", "/foo/bar/test.txt", false, Instant.now(), 100u),
         onDismissRequest = { },
+    )
+}
+
+@Composable
+private fun ConfirmDeleteDialog(
+    files: List<File>,
+    onDone: () -> Unit,
+    onCancel: () -> Unit,
+    onDeleteFile: suspend (File) -> Unit,
+) {
+    val coroutineScope = rememberCoroutineScope()
+
+    var isLoading by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        title = {
+            if (!isLoading) {
+                Text(text = "Delete ${files.size} file${if (files.size == 1) "" else "s"}?")
+            }
+        },
+        onDismissRequest = {
+            if (!isLoading) {
+                onCancel()
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isLoading,
+                onClick = {
+                    isLoading = true
+
+                    coroutineScope.launch {
+                        files.forEach { onDeleteFile(it) }
+
+                        onDone()
+                    }
+                },
+            ) {
+                Text(text = "Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !isLoading,
+                onClick = onCancel,
+            ) {
+                Text(text = "Cancel")
+            }
+        },
+        text = {
+            if (isLoading) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator()
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(text = "Deleting files...")
+                }
+            }
+        }
     )
 }
 
