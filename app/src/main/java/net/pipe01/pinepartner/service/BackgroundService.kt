@@ -54,6 +54,8 @@ class ServiceException : Exception {
     constructor(cause: Throwable) : super(cause)
 }
 
+private data class TransferJob(val job: Job, var progress: TransferProgress)
+
 class BackgroundService : Service() {
     private val TAG = "BackgroundService"
     private val NOTIF_CHANNEL_ID = "PinePartner"
@@ -63,8 +65,7 @@ class BackgroundService : Service() {
     private val notifManager = NotificationsManager()
     private lateinit var pluginManager: PluginManager
 
-    private val transferJobs = mutableMapOf<Int, TransferProgress>()
-    private val dfuJobs = mutableMapOf<String, Job>()
+    private val transferJobs = mutableMapOf<Int, TransferJob>()
 
     private var isStarted = false
 
@@ -251,12 +252,10 @@ class BackgroundService : Service() {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
         val jobId = Random.nextInt()
 
-        transferJobs[jobId] = TransferProgress(0f, null, null, false)
-
-        dfuJobs[address] = CoroutineScope(Dispatchers.IO).launch {
+        val job = CoroutineScope(Dispatchers.IO).launch {
             contentResolver.openInputStream(uri)!!.use { stream ->
                 device.flashDFU(stream, this) {
-                    transferJobs[jobId] = TransferProgress(
+                    transferJobs[jobId]?.progress = TransferProgress(
                         it.totalProgress,
                         it.bytesPerSecond,
                         it.secondsLeft?.let { Duration.ofSeconds(it.toLong()) },
@@ -266,12 +265,18 @@ class BackgroundService : Service() {
             }
         }
 
+        transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
+
         return jobId
     }
 
-    fun getTransferProgress(id: Int) = transferJobs[id]
+    fun getTransferProgress(id: Int) = transferJobs[id]?.progress
 
-    fun cancelDFU(address: String) = dfuJobs.remove(address)?.cancel()
+    fun cancelTransfer(id: Int) {
+        Log.i(TAG, "Cancelling transfer $id")
+
+        transferJobs.remove(id)?.job?.cancel() ?: Log.w(TAG, "Transfer $id not found")
+    }
 
     fun getPluginEvents(id: String, afterTime: Long): Array<LogEvent> {
         val events = pluginManager.getEvents(id) ?: emptyList()
@@ -323,14 +328,23 @@ class BackgroundService : Service() {
 
         val fullPath = joinPaths(path, name)
 
-        contentResolver.openInputStream(uri)?.use { stream ->
-            device.writeFile(fullPath, stream, size, CoroutineScope(Dispatchers.IO)) {
-                Log.d(TAG, "Progress: ${it.totalProgress}")
-                if (jobId != null) {
-                    transferJobs[jobId] = it
+        val job = CoroutineScope(Dispatchers.IO).launch {
+            contentResolver.openInputStream(uri)?.use { stream ->
+                device.writeFile(fullPath, stream, size, this) {
+                    if (jobId != null) {
+                        transferJobs[jobId]?.progress = it
+                    }
                 }
             }
         }
+
+        if (jobId != null) {
+            Log.i(TAG, "Started transfer job $jobId")
+
+            transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
+        }
+
+        job.join()
     }
 
     suspend fun createFolder(address: String, path: String) =

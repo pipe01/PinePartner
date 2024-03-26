@@ -407,7 +407,7 @@ private fun UploadDialog(
 
     var chosenFileUri by remember { mutableStateOf<Uri?>(null) }
 
-    val jobId = Random.nextInt()
+    val jobId = remember { Random.nextInt() }
     var lastProgress by remember { mutableStateOf<TransferProgress?>(null) }
 
     val pickFileLauncher = rememberLauncherForActivityResult(
@@ -448,36 +448,49 @@ private fun UploadDialog(
             onDismissRequest = { },
             confirmButton = { /*TODO*/ },
             text = {
-                if (lastProgress == null) {
-                    CircularProgressIndicator()
-                } else {
-                    Column {
-                        Text(
-                            modifier = Modifier
-                                .padding(vertical = 8.dp)
-                                .align(Alignment.CenterHorizontally),
-                            text = "Uploading file: " + "%.0f%%".format(lastProgress!!.totalProgress * 100),
-                        )
-
-                        LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
-
-                        if (lastProgress!!.bytesPerSecond != null) {
+                Column {
+                    if (lastProgress == null) {
+                        CircularProgressIndicator()
+                    } else {
+                        Column {
                             Text(
                                 modifier = Modifier
-                                    .padding(top = 8.dp)
+                                    .padding(vertical = 8.dp)
                                     .align(Alignment.CenterHorizontally),
-                                text = "${lastProgress!!.bytesPerSecond} Bytes/s",
+                                text = "Uploading file: " + "%.0f%%".format(lastProgress!!.totalProgress * 100),
                             )
-                        }
 
-                        if (lastProgress!!.timeLeft != null) {
-                            Text(
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .align(Alignment.CenterHorizontally),
-                                text = "${lastProgress!!.timeLeft!!.toMinutesSeconds()} left",
-                            )
+                            LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
+
+                            if (lastProgress!!.bytesPerSecond != null) {
+                                Text(
+                                    modifier = Modifier
+                                        .padding(top = 8.dp)
+                                        .align(Alignment.CenterHorizontally),
+                                    text = "${lastProgress!!.bytesPerSecond} Bytes/s",
+                                )
+                            }
+
+                            if (lastProgress!!.timeLeft != null) {
+                                Text(
+                                    modifier = Modifier
+                                        .padding(top = 8.dp)
+                                        .align(Alignment.CenterHorizontally),
+                                    text = "${lastProgress!!.timeLeft!!.toMinutesSeconds()} left",
+                                )
+                            }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextButton(
+                        modifier = Modifier.align(Alignment.End),
+                        onClick = {
+                            backgroundService.cancelTransfer(jobId)
+                        },
+                    ) {
+                        Text(text = "Cancel")
                     }
                 }
             }

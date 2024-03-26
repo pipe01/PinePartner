@@ -2,10 +2,12 @@ package net.pipe01.pinepartner.devices.blefs
 
 import android.annotation.SuppressLint
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
@@ -142,6 +144,10 @@ private class RequestChannel(
                 Log.e(tag, "Timeout waiting for response")
 
                 delay(500)
+            } catch (e: ClosedReceiveChannelException) {
+                Log.d(tag, "Channel closed")
+
+                throw CancellationException()
             }
         }
 

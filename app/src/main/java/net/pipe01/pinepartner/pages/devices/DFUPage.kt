@@ -92,16 +92,18 @@ private fun Uploader(
 ) {
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
+    var transferId by remember { mutableStateOf<Int?>(null) }
+
     if (backgroundService == null) {
         progress = TransferProgress(0.4f, 10000, Duration.ofSeconds(135), false)
     } else {
         LaunchedEffect(uri) {
             onStart()
 
-            val transferId = backgroundService.startWatchDFU(address, uri)
+            transferId = backgroundService.startWatchDFU(address, uri)
 
             while (true) {
-                progress = backgroundService.getTransferProgress(transferId)
+                progress = backgroundService.getTransferProgress(transferId!!)
 
                 if (progress?.isDone == true) {
                     onFinish()
@@ -152,7 +154,7 @@ private fun Uploader(
 
             Button(onClick = {
                 runBlocking {
-                    backgroundService!!.cancelDFU(address)
+                    backgroundService!!.cancelTransfer(transferId!!)
 
                     onCancel()
                 }
