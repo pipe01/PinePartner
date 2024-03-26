@@ -93,7 +93,7 @@ private fun Uploader(
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
     if (backgroundService == null) {
-        progress = TransferProgress(0, "Test test test", 0.4f, 10000, Duration.ofSeconds(135), false)
+        progress = TransferProgress("Test test test", 0.4f, 10000, Duration.ofSeconds(135), false)
     } else {
         LaunchedEffect(uri) {
             onStart()

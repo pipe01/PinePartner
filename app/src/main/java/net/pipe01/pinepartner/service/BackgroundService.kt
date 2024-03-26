@@ -251,13 +251,12 @@ class BackgroundService : Service() {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
         val jobId = Random.nextInt()
 
-        transferJobs[jobId] = TransferProgress(jobId, "Starting", 0f, null, null, false)
+        transferJobs[jobId] = TransferProgress("Starting", 0f, null, null, false)
 
         dfuJobs[address] = CoroutineScope(Dispatchers.IO).launch {
             contentResolver.openInputStream(uri)!!.use { stream ->
                 device.flashDFU(stream, this) {
                     transferJobs[jobId] = TransferProgress(
-                        jobId,
                         it.stageName,
                         it.totalProgress,
                         it.bytesPerSecond,
@@ -297,22 +296,18 @@ class BackgroundService : Service() {
         pluginManager.reload()
     }
 
-    suspend fun listFiles(address: String, path: String)
-        = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+    suspend fun listFiles(address: String, path: String) = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO))
+        ?: throw ServiceException("Device not found")
 
-    suspend fun writeFile(address: String, path: String, data: ByteArray)
-        = deviceManager.get(address)?.writeFile(
-        path,
-        ByteArrayInputStream(data),
-        data.size,
-        CoroutineScope(Dispatchers.IO)
-    ) ?: throw ServiceException("Device not found")
+    suspend fun writeFile(address: String, path: String, data: ByteArray) =
+        deviceManager.get(address)?.writeFile(path, ByteArrayInputStream(data), data.size, CoroutineScope(Dispatchers.IO))
+            ?: throw ServiceException("Device not found")
 
-    suspend fun deleteFile(address: String, path: String)
-        = deviceManager.get(address)?.deleteFile(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+    suspend fun deleteFile(address: String, path: String) = deviceManager.get(address)?.deleteFile(path, CoroutineScope(Dispatchers.IO))
+        ?: throw ServiceException("Device not found")
 
     @SuppressLint("Range")
-    suspend fun sendFile(address: String, path: String, uri: Uri) {
+    suspend fun sendFile(jobId: Int?, address: String, path: String, uri: Uri) {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         var size = 0
@@ -329,11 +324,21 @@ class BackgroundService : Service() {
 
         val fullPath = joinPaths(path, name)
 
-        contentResolver.openInputStream(uri)?.use {
-            device.writeFile(fullPath, it, size, CoroutineScope(Dispatchers.IO))
+        contentResolver.openInputStream(uri)?.use { stream ->
+            device.writeFile(fullPath, stream, size, CoroutineScope(Dispatchers.IO)) {
+                if (jobId != null) {
+                    transferJobs[jobId] = TransferProgress(
+                        "Sending",
+                        it.totalProgress,
+                        it.bytesPerSecond,
+                        it.timeLeft,
+                        it.isDone,
+                    )
+                }
+            }
         }
     }
 
-    suspend fun createFolder(address: String, path: String)
-        = deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+    suspend fun createFolder(address: String, path: String) =
+        deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
 }

@@ -30,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,15 +56,19 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.devices.blefs.File
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.BoxWithFAB
 import net.pipe01.pinepartner.utils.ExpandableFAB
+import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Instant
+import kotlin.random.Random
 
 @Composable
 fun FileBrowserPage(
@@ -402,6 +407,9 @@ private fun UploadDialog(
 
     var chosenFileUri by remember { mutableStateOf<Uri?>(null) }
 
+    val jobId = Random.nextInt()
+    var lastProgress by remember { mutableStateOf<TransferProgress?>(null) }
+
     val pickFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { fileUri ->
@@ -409,9 +417,22 @@ private fun UploadDialog(
             chosenFileUri = fileUri
 
             coroutineScope.launch {
-                backgroundService.sendFile(deviceAddress, path, fileUri)
+                backgroundService.sendFile(jobId, deviceAddress, path, fileUri)
 
                 onDone()
+            }
+
+            coroutineScope.launch {
+                while (true) {
+                    val progress = backgroundService.getTransferProgress(jobId)
+                    if (progress == null || progress.isDone) {
+                        break
+                    }
+
+                    lastProgress = progress
+
+                    delay(500)
+                }
             }
         } else {
             onCancel()
@@ -428,7 +449,38 @@ private fun UploadDialog(
             confirmButton = { /*TODO*/ },
             title = { Text(text = "Uploading file...") },
             text = {
-                CircularProgressIndicator()
+                if (lastProgress == null) {
+                    CircularProgressIndicator()
+                } else {
+                    Column {
+                        Text(
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .align(Alignment.CenterHorizontally),
+                            text = lastProgress!!.stage,
+                        )
+
+                        LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
+
+                        if (lastProgress!!.bytesPerSecond != null) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .align(Alignment.CenterHorizontally),
+                                text = "${lastProgress!!.bytesPerSecond} Bytes/s",
+                            )
+                        }
+
+                        if (lastProgress!!.timeLeft != null) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .align(Alignment.CenterHorizontally),
+                                text = lastProgress!!.timeLeft!!.toMinutesSeconds(),
+                            )
+                        }
+                    }
+                }
             }
         )
     }

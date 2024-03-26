@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -11,17 +12,21 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
+import net.pipe01.pinepartner.service.TransferProgress
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.time.Duration
 import java.time.Instant
 
 private const val TAG = "BLEFS"
 
 //TODO: Make this per-device
 private val mutex = Mutex()
+
+private data class Progress(val sent: Int, val total: Int)
 
 fun joinPaths(path1: String, path2: String): String {
     return cleanPath(
@@ -56,16 +61,45 @@ fun cleanPath(path: String): String {
 @SuppressLint("MissingPermission")
 private suspend fun Device.doRequest(
     coroutineScope: CoroutineScope,
+    onProgress: (TransferProgress) -> Unit = { },
     onBuildRequest: suspend () -> ByteBuffer,
     onReceiveResponse: suspend (ByteBuffer, ClientBleGattCharacteristic) -> Boolean,
+    onGetProgress: (() -> Progress)? = null,
 ) {
     val fileService = InfiniTime.FileSystemService.RAW_TRANSFER.bind(services)
 
     val done = CompletableDeferred<Unit>()
     val start = CompletableDeferred<Unit>()
 
+    onProgress(TransferProgress("Starting", 0f, null, null, false))
+
+    coroutineScope.launch {
+        var lastSentBytes = 0
+
+        while (true) {
+            delay(1000)
+
+            val progress = onGetProgress?.invoke()
+
+            if (progress != null) {
+                val bytesPerSecond = progress.sent - lastSentBytes
+                lastSentBytes = progress.sent
+
+                onProgress(
+                    TransferProgress(
+                        "Progress",
+                        progress.sent.toFloat() / progress.total,
+                        bytesPerSecond.toLong(),
+                        if (bytesPerSecond > 0) Duration.ofSeconds(((progress.total - progress.sent) / bytesPerSecond).toLong()) else null,
+                        false
+                    )
+                )
+            }
+        }
+    }
+
     mutex.withLock {
-        val job = coroutineScope.launch {
+        coroutineScope.launch {
             fileService
                 .getNotifications()
                 .onStart { start.complete(Unit) }
@@ -86,17 +120,23 @@ private suspend fun Device.doRequest(
         fileService.write(DataByteArray(request.array()))
 
         done.await()
-        job.cancel()
+        coroutineScope.cancel()
     }
+
+    onProgress(TransferProgress("Done", 1f, null, null, true))
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteArray {
+suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope, onProgress: (TransferProgress) -> Unit = { }): ByteArray {
     var file: ByteArray? = null
     val wantChunkSize = mtu - 12
 
+    var receivedBytes = 0
+
     doRequest(
         coroutineScope = coroutineScope,
+        onProgress = onProgress,
+        onGetProgress = { Progress(receivedBytes, file?.size ?: 0) },
         onBuildRequest = {
             val pathBytes = path.toByteArray()
 
@@ -127,6 +167,7 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
             }
 
             resp.get(file!!, offset, chunkSize)
+            receivedBytes += chunkSize
 
             Log.d(TAG, "Read response $offset/$totalSize bytes")
 
@@ -156,14 +197,24 @@ suspend fun Device.readFile(path: String, coroutineScope: CoroutineScope): ByteA
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: Int, coroutineScope: CoroutineScope) {
+suspend fun Device.writeFile(
+    path: String,
+    inputStream: InputStream,
+    totalSize: Int,
+    coroutineScope: CoroutineScope,
+    onProgress: (TransferProgress) -> Unit = { }
+) {
     val headerSize = 12
-    val buffer = ByteArray(mtu - headerSize)
+    val buffer = ByteArray(mtu - 16) // Size determined through experimentation, any larger crashes the watch
 
     var sent = 0
 
+    Log.d(TAG, "Writing file $path, $totalSize bytes, buffer size is ${buffer.size} bytes")
+
     doRequest(
         coroutineScope = coroutineScope,
+        onProgress = onProgress,
+        onGetProgress = { Progress(sent, totalSize) },
         onBuildRequest = {
             val pathBytes = path.toByteArray()
 
@@ -192,23 +243,22 @@ suspend fun Device.writeFile(path: String, inputStream: InputStream, totalSize: 
             if (bytesLeft == 0) {
                 true
             } else {
-                val chunkSize = bytesLeft.coerceAtMost(buffer.size)
+                val readNum = inputStream.read(buffer)
+                //TODO: Handle readNum <= 0
 
-                inputStream.read(buffer)
-
-                val continueBuf = ByteBuffer.allocate(headerSize + chunkSize).order(ByteOrder.LITTLE_ENDIAN)
+                val continueBuf = ByteBuffer.allocate(headerSize + readNum).order(ByteOrder.LITTLE_ENDIAN)
                 continueBuf.put(0x22)
                 continueBuf.put(0x01)
                 continueBuf.putShort(0) // Padding
                 continueBuf.putInt(sent)
-                continueBuf.putInt(chunkSize)
-                continueBuf.put(buffer, 0, chunkSize)
+                continueBuf.putInt(readNum)
+                continueBuf.put(buffer, 0, readNum)
 
-                Log.d(TAG, "Writing $chunkSize bytes")
+                Log.d(TAG, "Writing $readNum bytes")
 
                 fs.write(DataByteArray(continueBuf.array()))
 
-                sent += chunkSize
+                sent += readNum
 
                 sent == totalSize
             }
