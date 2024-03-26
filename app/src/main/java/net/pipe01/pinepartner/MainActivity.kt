@@ -11,7 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,8 +40,8 @@ class MainActivity : ComponentActivity() {
             var service by remember { mutableStateOf<BackgroundService?>(null) }
             var showBottomBar by remember { mutableStateOf(true) }
 
-            LaunchedEffect(Unit) {
-                bindService(intent, object : ServiceConnection {
+            DisposableEffect(Unit) {
+                val conn = object : ServiceConnection {
                     override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                         service = (binder as BackgroundService.ServiceBinder).service
                     }
@@ -49,7 +49,13 @@ class MainActivity : ComponentActivity() {
                     override fun onServiceDisconnected(name: ComponentName?) {
                         Log.d("MainActivity", "Service disconnected")
                     }
-                }, 0)
+                }
+
+                bindService(intent, conn, 0)
+
+                onDispose {
+                    unbindService(conn)
+                }
             }
 
             PinePartnerTheme {
