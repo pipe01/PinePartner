@@ -1,4 +1,4 @@
-package net.pipe01.pinepartner.utils
+package net.pipe01.pinepartner.utils.composables
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column

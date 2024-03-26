@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.scrollable
@@ -12,14 +13,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
@@ -28,6 +32,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -64,8 +69,8 @@ import net.pipe01.pinepartner.devices.blefs.File
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
-import net.pipe01.pinepartner.utils.BoxWithFAB
-import net.pipe01.pinepartner.utils.ExpandableFAB
+import net.pipe01.pinepartner.utils.composables.BoxWithFAB
+import net.pipe01.pinepartner.utils.composables.ExpandableFAB
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Instant
 import kotlin.random.Random
@@ -87,6 +92,7 @@ fun FileBrowserPage(
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showCreateFileDialog by remember { mutableStateOf(false) }
     var showUploadFileDialog by remember { mutableStateOf(false) }
+    var showOpenFileDialog by remember { mutableStateOf<File?>(null) }
 
     suspend fun reload() {
         isLoading = true
@@ -123,8 +129,7 @@ fun FileBrowserPage(
                 }
             },
         )
-    }
-    if (showUploadFileDialog) {
+    } else if (showUploadFileDialog) {
         UploadDialog(
             backgroundService = backgroundService,
             deviceAddress = deviceAddress,
@@ -135,6 +140,11 @@ fun FileBrowserPage(
                 coroutineScope.launch { reload() }
             },
             onCancel = { showUploadFileDialog = false },
+        )
+    } else if (showOpenFileDialog != null) {
+        OpenFileDialog(
+            file = showOpenFileDialog!!,
+            onDismissRequest = { showOpenFileDialog = null },
         )
     }
 
@@ -176,7 +186,8 @@ fun FileBrowserPage(
                             .sortedBy { it.name }
                             .sortedByDescending { it.isDirectory },
                         selected = selectedFiles,
-                        onOpenFolder = onOpenFolder,
+                        onOpenFolder = { onOpenFolder(it.fullPath) },
+                        onOpenFile = { showOpenFileDialog = it },
                         onToggleSelect = {
                             if (selectedFiles.contains(it)) {
                                 selectedFiles.remove(it)
@@ -247,7 +258,8 @@ private fun ActionBarPreview() {
 private fun FileList(
     files: List<File>,
     selected: List<File>,
-    onOpenFolder: (String) -> Unit = { },
+    onOpenFolder: (File) -> Unit = { },
+    onOpenFile: (File) -> Unit = { },
     onToggleSelect: (File) -> Unit = { },
 ) {
     Column(
@@ -260,7 +272,9 @@ private fun FileList(
                 isSelecting = selected.isNotEmpty(),
                 onOpen = {
                     if (file.isDirectory) {
-                        onOpenFolder(file.fullPath)
+                        onOpenFolder(file)
+                    } else {
+                        onOpenFile(file)
                     }
                 },
                 onToggleSelect = {
@@ -271,6 +285,20 @@ private fun FileList(
             )
         }
     }
+}
+
+@Preview(showBackground = true, widthDp = 320, heightDp = 640)
+@Composable
+private fun FileListPreview() {
+    FileList(
+        files = listOf(
+            File(".", "", true, Instant.now(), 0u),
+            File("..", "", true, Instant.now(), 0u),
+            File("test.txt", "test.txt", false, Instant.now(), 100u),
+            File("very-very-very-very-very-very-long-name.txt", "test.txt", false, Instant.now(), 100u),
+        ),
+        selected = emptyList(),
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -498,16 +526,46 @@ private fun UploadDialog(
     }
 }
 
-@Preview(showBackground = true, widthDp = 320, heightDp = 640)
 @Composable
-private fun FileListPreview() {
-    FileList(
-        files = listOf(
-            File(".", "", true, Instant.now(), 0u),
-            File("..", "", true, Instant.now(), 0u),
-            File("test.txt", "test.txt", false, Instant.now(), 100u),
-            File("very-very-very-very-very-very-long-name.txt", "test.txt", false, Instant.now(), 100u),
-        ),
-        selected = emptyList(),
+private fun OpenFileDialog(
+    file: File,
+    onDismissRequest: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = { },
+        title = {
+            SelectionContainer {
+                Text(text = file.fullPath)
+            }
+        },
+        text = {
+            Column {
+                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { }
+                        .padding(16.dp),
+                ) {
+                    Icon(Icons.Filled.Download, contentDescription = "Download")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(text = "Download to phone")
+                }
+            }
+        },
     )
 }
+
+@Preview(widthDp = 320, heightDp = 640)
+@Composable
+private fun OpenFileDialogPreview() {
+    OpenFileDialog(
+        file = File("test.txt", "/foo/bar/test.txt", false, Instant.now(), 100u),
+        onDismissRequest = { },
+    )
+}
+

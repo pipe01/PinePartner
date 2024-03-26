@@ -34,8 +34,8 @@ import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
 import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.scripting.downloadPlugin
-import net.pipe01.pinepartner.utils.BoxWithFAB
-import net.pipe01.pinepartner.utils.HeaderFrame
+import net.pipe01.pinepartner.utils.composables.BoxWithFAB
+import net.pipe01.pinepartner.utils.composables.HeaderFrame
 
 @Composable
 fun ImportPluginPage(

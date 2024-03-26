@@ -41,8 +41,8 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.service.BackgroundService
-import net.pipe01.pinepartner.utils.BoxWithFAB
-import net.pipe01.pinepartner.utils.HeaderFrame
+import net.pipe01.pinepartner.utils.composables.BoxWithFAB
+import net.pipe01.pinepartner.utils.composables.HeaderFrame
 
 @Composable
 fun PluginsPage(
