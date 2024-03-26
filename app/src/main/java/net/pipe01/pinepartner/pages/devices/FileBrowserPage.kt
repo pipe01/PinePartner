@@ -146,6 +146,10 @@ fun FileBrowserPage(
         FileActionsDialog(
             file = showOpenFileDialog!!,
             onDismissRequest = { showOpenFileDialog = null },
+            onDelete = {
+                showConfirmDeleteDialog = listOf(showOpenFileDialog!!)
+                showOpenFileDialog = null
+            },
         )
     } else if (showConfirmDeleteDialog != null) {
         ConfirmDeleteDialog(
@@ -541,6 +545,7 @@ private fun UploadDialog(
 private fun FileActionsDialog(
     file: File,
     onDismissRequest: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     PopupDialog(
         title = {
@@ -553,9 +558,7 @@ private fun FileActionsDialog(
         action(Icons.Filled.Download, "Download to phone") {
 
         }
-        action(Icons.Filled.Delete, "Delete") {
-
-        }
+        action(Icons.Filled.Delete, "Delete", onDelete)
     }
 }
 
@@ -565,6 +568,7 @@ private fun FileActionsDialogPreview() {
     FileActionsDialog(
         file = File("test.txt", "/foo/bar/test.txt", false, Instant.now(), 100u),
         onDismissRequest = { },
+        onDelete = { },
     )
 }
 
