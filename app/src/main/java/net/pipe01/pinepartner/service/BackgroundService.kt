@@ -325,6 +325,7 @@ class BackgroundService : Service() {
 
         contentResolver.openInputStream(uri)?.use { stream ->
             device.writeFile(fullPath, stream, size, CoroutineScope(Dispatchers.IO)) {
+                Log.d(TAG, "Progress: ${it.totalProgress}")
                 if (jobId != null) {
                     transferJobs[jobId] = it
                 }

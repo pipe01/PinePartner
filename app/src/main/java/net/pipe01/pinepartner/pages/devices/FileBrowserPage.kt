@@ -425,7 +425,7 @@ private fun UploadDialog(
             coroutineScope.launch {
                 while (true) {
                     val progress = backgroundService.getTransferProgress(jobId)
-                    if (progress == null || progress.isDone) {
+                    if (progress?.isDone == true) {
                         break
                     }
 
@@ -447,7 +447,6 @@ private fun UploadDialog(
         AlertDialog(
             onDismissRequest = { },
             confirmButton = { /*TODO*/ },
-            title = { Text(text = "Uploading file...") },
             text = {
                 if (lastProgress == null) {
                     CircularProgressIndicator()
@@ -457,7 +456,7 @@ private fun UploadDialog(
                             modifier = Modifier
                                 .padding(vertical = 8.dp)
                                 .align(Alignment.CenterHorizontally),
-                            text = "Uploading file...",
+                            text = "Uploading file: " + "%.0f%%".format(lastProgress!!.totalProgress * 100),
                         )
 
                         LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
@@ -476,7 +475,7 @@ private fun UploadDialog(
                                 modifier = Modifier
                                     .padding(top = 8.dp)
                                     .align(Alignment.CenterHorizontally),
-                                text = lastProgress!!.timeLeft!!.toMinutesSeconds(),
+                                text = "${lastProgress!!.timeLeft!!.toMinutesSeconds()} left",
                             )
                         }
                     }
