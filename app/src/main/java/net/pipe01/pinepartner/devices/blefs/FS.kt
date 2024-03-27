@@ -33,7 +33,31 @@ private const val TAG = "BLEFS"
 //TODO: Make this per-device
 private val mutex = Mutex()
 
-data class BLEFSException(override val message: String) : Exception(message)
+enum class LittleFSError(val value: Byte, val message: String) {
+    OK(1, "ok"),
+    IO(-5, "error during device operation"),
+    CORRUPT(-84, "corrupted"),
+    NOENT(-2, "no directory entry"),
+    EXIST(-17, "entry already exists"),
+    NOTDIR(-20, "entry is not a dir"),
+    ISDIR(-21, "entry is a dir"),
+    NOTEMPTY(-39, "dir is not empty"),
+    BADF(-9, "bad file number"),
+    FBIG(-27, "file too large"),
+    INVAL(-22, "invalid parameter"),
+    NOSPC(-28, "no space left on device"),
+    NOMEM(-12, "no more memory available"),
+    NOATTR(-61, "no data/attr available"),
+    NAMETOOLONG(-36, "file name too long");
+
+    companion object {
+        fun fromValue(value: Byte): LittleFSError? {
+            return entries.firstOrNull { it.value == value }
+        }
+    }
+}
+
+data class BLEFSException(override val message: String, val errorCode: LittleFSError? = null) : Exception(message)
 
 fun joinPaths(path1: String, path2: String): String {
     return cleanPath(
@@ -218,6 +242,10 @@ suspend fun Device.readFile(
 
         while (true) {
             val status = resp.get()
+            if (status != 1.toByte()) {
+                throw BLEFSException("Read failed", LittleFSError.fromValue(status))
+            }
+
             resp.getShort() // Padding
             val offset = resp.getInt()
             val totalSize = resp.getInt()
@@ -293,6 +321,10 @@ suspend fun Device.writeFile(
     ProgressReporter(totalSize.toLong(), onProgress).use { reporter ->
         while (true) {
             val status = resp.get()
+            if (status != 1.toByte()) {
+                throw BLEFSException("Write failed", LittleFSError.fromValue(status))
+            }
+
             val bytesLeft = totalSize - sent
 
             Log.d(TAG, "Write status $status, $sent/$totalSize bytes")
@@ -330,8 +362,7 @@ suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) {
 
     val pathBytes = path.toByteArray()
 
-    //TODO: Check status
-    channel.send(
+    val resp = channel.send(
         0x31,
         ByteBuffer
             .allocate(4 + pathBytes.size)
@@ -342,6 +373,11 @@ suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) {
             .put(pathBytes)
             .array()
     )
+
+    val status = resp.get()
+    if (status != 1.toByte()) {
+        throw BLEFSException("Delete failed", LittleFSError.fromValue(status))
+    }
 }
 
 @SuppressLint("MissingPermission")
@@ -352,7 +388,11 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
         val pathBytes = path.toByteArray()
 
         fun parseFile(buffer: ByteBuffer): File? {
-            val exists = buffer.get() == 0x01.toByte()
+            val status = buffer.get()
+            if (status != 1.toByte()) {
+                throw BLEFSException("List failed", LittleFSError.fromValue(status))
+            }
+
             val pathLength = buffer.getShort().toUShort()
             val entryNumber = buffer.getInt().toUInt()
             val totalEntries = buffer.getInt().toUInt()
@@ -405,8 +445,7 @@ suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) {
 
     val pathBytes = path.toByteArray()
 
-    //TODO: Check status
-    channel.send(
+    val resp = channel.send(
         expectCommand = 0x41,
         req = ByteBuffer
             .allocate(16 + pathBytes.size)
@@ -419,4 +458,9 @@ suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) {
             .put(pathBytes)
             .array()
     )
+
+    val status = resp.get()
+    if (status != 1.toByte()) {
+        throw BLEFSException("Create folder failed", LittleFSError.fromValue(status))
+    }
 }
