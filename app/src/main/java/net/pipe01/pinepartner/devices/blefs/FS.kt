@@ -3,6 +3,7 @@ package net.pipe01.pinepartner.devices.blefs
 import android.annotation.SuppressLint
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -10,6 +11,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,16 +20,18 @@ import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
 import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.ProgressReporter
+import net.pipe01.pinepartner.utils.SuspendClosable
 import net.pipe01.pinepartner.utils.joinToHexString
+import net.pipe01.pinepartner.utils.use
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
-import java.io.Closeable
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.random.Random
 
 private const val TAG = "BLEFS"
 
@@ -93,21 +97,24 @@ fun cleanPath(path: String): String {
 private class RequestChannel(
     private val characteristic: ClientBleGattCharacteristic,
     coroutineScope: CoroutineScope,
-) : Closeable {
+) : SuspendClosable {
+    private val tag = "RequestChannel-${Random.nextInt(10000, 99999)}"
+
     private val channel = Channel<ByteArray>(Channel.UNLIMITED)
     private val notifJob: Job
+    private val closeCompletable = CompletableDeferred<Unit>()
 
     private var storedResponse = AtomicReference<ByteBuffer?>(null)
-
-    private val tag = "RequestChannel"
 
     init {
         notifJob = coroutineScope.launch {
             characteristic
                 .getNotifications()
+                .onStart { Log.d(tag, "Notifications started")}
                 .onCompletion {
                     Log.d(tag, "Notifications done")
                     channel.close()
+                    closeCompletable.complete(Unit)
                 }
                 .collect {
                     Log.d(tag, "Notification: ${it.value.joinToHexString()}")
@@ -116,8 +123,16 @@ private class RequestChannel(
         }
     }
 
-    override fun close() {
+    override suspend fun close() {
         notifJob.cancel()
+
+        try {
+            withTimeout(3000) {
+                closeCompletable.await()
+            }
+        } catch (e: TimeoutCancellationException) {
+            Log.e(tag, "Failed to wait for notifications to end", e)
+        }
     }
 
     @SuppressLint("MissingPermission")
