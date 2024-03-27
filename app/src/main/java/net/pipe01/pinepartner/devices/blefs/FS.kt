@@ -71,7 +71,7 @@ fun joinPaths(path1: String, path2: String): String {
 }
 
 fun cleanPath(path: String): String {
-    val parts = ArrayDeque(path.split("/"))
+    val parts = ArrayDeque(path.removePrefix("/").split("/"))
 
     while (!parts.isEmpty()) {
         when (parts.last()) {
@@ -221,64 +221,66 @@ suspend fun Device.readFile(
     coroutineScope: CoroutineScope,
     onProgress: (TransferProgress) -> Unit = { }
 ) = mutex.withLock {
-    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
-
     val pathBytes = path.toByteArray()
     val wantChunkSize = mtu - 12
 
-    ProgressReporter(0, onProgress).use { reporter ->
-        var resp = channel.send(
-            expectCommand = 0x11,
-            req = ByteBuffer
-                .allocate(12 + pathBytes.size)
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .put(0x10)
-                .put(0)
-                .putShort(pathBytes.size.toShort())
-                .putInt(0)
-                .putInt(wantChunkSize)
-                .put(pathBytes)
-                .array(),
-        )
+    Log.d(TAG, "Reading file $path, wantChunkSize=$wantChunkSize")
 
-        while (true) {
-            val status = resp.get()
-            if (status != 1.toByte()) {
-                throw BLEFSException("Read failed", LittleFSError.fromValue(status))
-            }
-
-            resp.getShort() // Padding
-            val offset = resp.getInt()
-            val totalSize = resp.getInt()
-            val chunkSize = resp.getInt()
-
-            reporter.totalSize = totalSize.toLong()
-
-            val chunk = ByteArray(chunkSize)
-            resp.get(chunk)
-
-            output.write(chunk)
-            reporter.addBytes(chunkSize.toLong())
-
-            Log.d(TAG, "Read response $offset/$totalSize bytes")
-
-            val bytesRemaining = totalSize - offset - chunkSize
-
-            if (bytesRemaining == 0) {
-                break
-            }
-
-            resp = channel.send(
+    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+        ProgressReporter(0, onProgress).use { reporter ->
+            var resp = channel.send(
                 expectCommand = 0x11,
                 req = ByteBuffer
-                    .allocate(12)
+                    .allocate(12 + pathBytes.size)
                     .order(ByteOrder.LITTLE_ENDIAN)
-                    .put(0x12)
-                    .put(0x01)
-                    .putShort(0) // Padding
-                    .putInt(offset + chunkSize)
-                    .putInt(wantChunkSize).array()
+                    .put(0x10)
+                    .put(0)
+                    .putShort(pathBytes.size.toShort())
+                    .putInt(0)
+                    .putInt(wantChunkSize)
+                    .put(pathBytes)
+                    .array(),
             )
+
+            while (true) {
+                val status = resp.get()
+                if (status != 1.toByte()) {
+                    throw BLEFSException("Read failed", LittleFSError.fromValue(status))
+                }
+
+                resp.getShort() // Padding
+                val offset = resp.getInt()
+                val totalSize = resp.getInt()
+                val chunkSize = resp.getInt()
+
+                reporter.totalSize = totalSize.toLong()
+
+                val chunk = ByteArray(chunkSize)
+                resp.get(chunk)
+
+                output.write(chunk)
+                reporter.addBytes(chunkSize.toLong())
+
+                Log.d(TAG, "Read response $offset/$totalSize bytes")
+
+                val bytesRemaining = totalSize - offset - chunkSize
+
+                if (bytesRemaining == 0) {
+                    break
+                }
+
+                resp = channel.send(
+                    expectCommand = 0x11,
+                    req = ByteBuffer
+                        .allocate(12)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .put(0x12)
+                        .put(0x01)
+                        .putShort(0) // Padding
+                        .putInt(offset + chunkSize)
+                        .putInt(wantChunkSize).array()
+                )
+            }
         }
     }
 }
@@ -298,58 +300,58 @@ suspend fun Device.writeFile(
 
     Log.d(TAG, "Writing file $path, $totalSize bytes, buffer size is ${buffer.size} bytes")
 
-    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
+    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+        val pathBytes = path.toByteArray()
 
-    val pathBytes = path.toByteArray()
+        var resp = channel.send(
+            0x21,
+            ByteBuffer
+                .allocate(20 + pathBytes.size)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(0x20)
+                .put(0)
+                .putShort(pathBytes.size.toShort())
+                .putInt(0) // Start offset
+                .putLong(0) // Modification time
+                .putInt(totalSize)
+                .put(pathBytes)
+                .array()
+        )
 
-    var resp = channel.send(
-        0x21,
-        ByteBuffer
-            .allocate(20 + pathBytes.size)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .put(0x20)
-            .put(0)
-            .putShort(pathBytes.size.toShort())
-            .putInt(0) // Start offset
-            .putLong(0) // Modification time
-            .putInt(totalSize)
-            .put(pathBytes)
-            .array()
-    )
-
-    ProgressReporter(totalSize.toLong(), onProgress).use { reporter ->
-        while (true) {
-            val status = resp.get()
-            if (status != 1.toByte()) {
-                throw BLEFSException("Write failed", LittleFSError.fromValue(status))
-            }
-
-            val bytesLeft = totalSize - sent
-
-            Log.d(TAG, "Write status $status, $sent/$totalSize bytes")
-
-            if (bytesLeft == 0) {
-                break
-            } else {
-                val readNum = coroutineScope.run {
-                    inputStream.read(buffer)
+        ProgressReporter(totalSize.toLong(), onProgress).use { reporter ->
+            while (true) {
+                val status = resp.get()
+                if (status != 1.toByte()) {
+                    throw BLEFSException("Write failed", LittleFSError.fromValue(status))
                 }
-                //TODO: Handle readNum <= 0
 
-                val continueBuf = ByteBuffer.allocate(headerSize + readNum).order(ByteOrder.LITTLE_ENDIAN)
-                continueBuf.put(0x22)
-                continueBuf.put(0x01)
-                continueBuf.putShort(0) // Padding
-                continueBuf.putInt(sent)
-                continueBuf.putInt(readNum)
-                continueBuf.put(buffer, 0, readNum)
+                val bytesLeft = totalSize - sent
 
-                Log.d(TAG, "Writing $readNum bytes")
+                Log.d(TAG, "Write status $status, $sent/$totalSize bytes")
 
-                sent += readNum
-                reporter.addBytes(readNum.toLong())
+                if (bytesLeft == 0) {
+                    break
+                } else {
+                    val readNum = coroutineScope.run {
+                        inputStream.read(buffer)
+                    }
+                    //TODO: Handle readNum <= 0
 
-                resp = channel.send(0x21, continueBuf.array())
+                    val continueBuf = ByteBuffer.allocate(headerSize + readNum).order(ByteOrder.LITTLE_ENDIAN)
+                    continueBuf.put(0x22)
+                    continueBuf.put(0x01)
+                    continueBuf.putShort(0) // Padding
+                    continueBuf.putInt(sent)
+                    continueBuf.putInt(readNum)
+                    continueBuf.put(buffer, 0, readNum)
+
+                    Log.d(TAG, "Writing $readNum bytes")
+
+                    sent += readNum
+                    reporter.addBytes(readNum.toLong())
+
+                    resp = channel.send(0x21, continueBuf.array())
+                }
             }
         }
     }
@@ -357,30 +359,34 @@ suspend fun Device.writeFile(
 
 @SuppressLint("MissingPermission")
 suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
-    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
+    Log.d(TAG, "Deleting file $path")
 
-    val pathBytes = path.toByteArray()
+    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+        val pathBytes = path.toByteArray()
 
-    val resp = channel.send(
-        0x31,
-        ByteBuffer
-            .allocate(4 + pathBytes.size)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .put(0x30)
-            .put(0)
-            .putShort(pathBytes.size.toShort())
-            .put(pathBytes)
-            .array()
-    )
+        val resp = channel.send(
+            0x31,
+            ByteBuffer
+                .allocate(4 + pathBytes.size)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(0x30)
+                .put(0)
+                .putShort(pathBytes.size.toShort())
+                .put(pathBytes)
+                .array()
+        )
 
-    val status = resp.get()
-    if (status != 1.toByte()) {
-        throw BLEFSException("Delete failed", LittleFSError.fromValue(status))
+        val status = resp.get()
+        if (status != 1.toByte()) {
+            throw BLEFSException("Delete failed", LittleFSError.fromValue(status))
+        }
     }
 }
 
 @SuppressLint("MissingPermission")
 suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List<File> = mutex.withLock {
+    Log.d(TAG, "Listing files in $path")
+
     val files = mutableListOf<File>()
 
     RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use<RequestChannel, List<File>> { channel ->
@@ -440,27 +446,29 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 
 @SuppressLint("MissingPermission")
 suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
-    val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
+    Log.d(TAG, "Creating folder $path")
 
-    val pathBytes = path.toByteArray()
+    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+        val pathBytes = path.toByteArray()
 
-    val resp = channel.send(
-        expectCommand = 0x41,
-        req = ByteBuffer
-            .allocate(16 + pathBytes.size)
-            .order(ByteOrder.LITTLE_ENDIAN)
-            .put(0x40)
-            .put(0) // Padding
-            .putShort(pathBytes.size.toShort())
-            .putInt(0) // Padding
-            .putLong(0) // Timestamp
-            .put(pathBytes)
-            .array()
-    )
+        val resp = channel.send(
+            expectCommand = 0x41,
+            req = ByteBuffer
+                .allocate(16 + pathBytes.size)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(0x40)
+                .put(0) // Padding
+                .putShort(pathBytes.size.toShort())
+                .putInt(0) // Padding
+                .putLong(0) // Timestamp
+                .put(pathBytes)
+                .array()
+        )
 
-    val status = resp.get()
-    if (status != 1.toByte()) {
-        throw BLEFSException("Create folder failed", LittleFSError.fromValue(status))
+        val status = resp.get()
+        if (status != 1.toByte()) {
+            throw BLEFSException("Create folder failed", LittleFSError.fromValue(status))
+        }
     }
 }
 
