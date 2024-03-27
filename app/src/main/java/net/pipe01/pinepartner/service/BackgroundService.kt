@@ -25,17 +25,20 @@ import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.devices.WatchState
+import net.pipe01.pinepartner.devices.blefs.File
 import net.pipe01.pinepartner.devices.blefs.createFolder
 import net.pipe01.pinepartner.devices.blefs.deleteFile
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.devices.blefs.writeFile
+import net.pipe01.pinepartner.devices.externalResources.uploadExternalResources
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
@@ -300,8 +303,13 @@ class BackgroundService : Service() {
         pluginManager.reload()
     }
 
-    suspend fun listFiles(address: String, path: String) = deviceManager.get(address)?.listFiles(path, CoroutineScope(Dispatchers.IO))
-        ?: throw ServiceException("Device not found")
+    suspend fun listFiles(address: String, path: String): List<File> {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+
+        return coroutineScope {
+            device.listFiles(path, this)
+        }
+    }
 
     suspend fun writeFile(address: String, path: String, data: ByteArray) =
         deviceManager.get(address)?.writeFile(path, ByteArrayInputStream(data), data.size, CoroutineScope(Dispatchers.IO))
@@ -349,4 +357,24 @@ class BackgroundService : Service() {
 
     suspend fun createFolder(address: String, path: String) =
         deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+
+    suspend fun uploadResources(jobId: Int?, address: String, zipUri: Uri) {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+
+        val job = CoroutineScope(Dispatchers.IO).launch {
+            contentResolver.openInputStream(zipUri)?.use { stream ->
+                device.uploadExternalResources(stream, this) {
+                    if (jobId != null) {
+                        transferJobs[jobId]?.progress = it
+                    }
+                }
+            }
+        }
+
+        if (jobId != null) {
+            transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
+        }
+
+        job.join()
+    }
 }

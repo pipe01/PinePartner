@@ -33,8 +33,6 @@ private const val TAG = "BLEFS"
 //TODO: Make this per-device
 private val mutex = Mutex()
 
-private data class Progress(val sent: Int, val total: Int)
-
 data class BLEFSException(override val message: String) : Exception(message)
 
 fun joinPaths(path1: String, path2: String): String {

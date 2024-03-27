@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FileUpload
@@ -34,7 +35,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,7 +71,7 @@ import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 import net.pipe01.pinepartner.utils.composables.ExpandableFAB
 import net.pipe01.pinepartner.utils.composables.PopupDialog
-import net.pipe01.pinepartner.utils.toMinutesSeconds
+import net.pipe01.pinepartner.utils.composables.ProgressIndicator
 import java.time.Instant
 import kotlin.random.Random
 
@@ -92,6 +92,7 @@ fun FileBrowserPage(
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showCreateFileDialog by remember { mutableStateOf(false) }
     var showUploadFileDialog by remember { mutableStateOf(false) }
+    var showFlashResourcesDialog by remember { mutableStateOf(false) }
     var showOpenFileDialog by remember { mutableStateOf<File?>(null) }
     var showConfirmDeleteDialog by remember { mutableStateOf<List<File>?>(null) }
 
@@ -130,17 +131,22 @@ fun FileBrowserPage(
                 }
             },
         )
-    } else if (showUploadFileDialog) {
+    } else if (showUploadFileDialog || showFlashResourcesDialog) {
         UploadDialog(
             backgroundService = backgroundService,
             deviceAddress = deviceAddress,
+            isExternalResources = showFlashResourcesDialog,
             path = path,
             onDone = {
                 showUploadFileDialog = false
+                showFlashResourcesDialog = false
 
                 coroutineScope.launch { reload() }
             },
-            onCancel = { showUploadFileDialog = false },
+            onCancel = {
+                showUploadFileDialog = false
+                showFlashResourcesDialog = false
+            },
         )
     } else if (showOpenFileDialog != null) {
         FileActionsDialog(
@@ -191,14 +197,19 @@ fun FileBrowserPage(
                             onClick = { showCreateFolderDialog = true }
                         )
                         action(
+                            icon = { Icon(Icons.Outlined.Description, contentDescription = "Create empty file") },
+                            text = "Create empty file",
+                            onClick = { showCreateFileDialog = true }
+                        )
+                        action(
                             icon = { Icon(Icons.Outlined.FileUpload, contentDescription = "Send file") },
                             text = "Send file",
                             onClick = { showUploadFileDialog = true }
                         )
                         action(
-                            icon = { Icon(Icons.Outlined.Description, contentDescription = "Create empty file") },
-                            text = "Create empty file",
-                            onClick = { showCreateFileDialog = true }
+                            icon = { Icon(Icons.Outlined.Archive, contentDescription = "Flash resources") },
+                            text = "Flash resources",
+                            onClick = { showFlashResourcesDialog = true }
                         )
                     }
                 }) {
@@ -443,6 +454,7 @@ private fun UploadDialog(
     deviceAddress: String,
     path: String,
     backgroundService: BackgroundService,
+    isExternalResources: Boolean,
     onDone: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -460,7 +472,11 @@ private fun UploadDialog(
             chosenFileUri = fileUri
 
             coroutineScope.launch {
-                backgroundService.sendFile(jobId, deviceAddress, path, fileUri)
+                if (isExternalResources) {
+                    backgroundService.uploadResources(jobId, deviceAddress, fileUri)
+                } else {
+                    backgroundService.sendFile(jobId, deviceAddress, path, fileUri)
+                }
 
                 onDone()
             }
@@ -483,7 +499,7 @@ private fun UploadDialog(
     }
 
     LaunchedEffect(Unit) {
-        pickFileLauncher.launch("*/*")
+        pickFileLauncher.launch(if (isExternalResources) "application/zip" else "*/*")
     }
 
     if (chosenFileUri != null) {
@@ -492,38 +508,7 @@ private fun UploadDialog(
             confirmButton = { /*TODO*/ },
             text = {
                 Column {
-                    if (lastProgress == null) {
-                        CircularProgressIndicator()
-                    } else {
-                        Column {
-                            Text(
-                                modifier = Modifier
-                                    .padding(vertical = 8.dp)
-                                    .align(Alignment.CenterHorizontally),
-                                text = "Uploading file: ${(lastProgress!!.totalProgress * 100).toInt()}%",
-                            )
-
-                            LinearProgressIndicator(progress = { lastProgress!!.totalProgress })
-
-                            if (lastProgress!!.bytesPerSecond != null) {
-                                Text(
-                                    modifier = Modifier
-                                        .padding(top = 8.dp)
-                                        .align(Alignment.CenterHorizontally),
-                                    text = "${lastProgress!!.bytesPerSecond} Bytes/s",
-                                )
-                            }
-
-                            if (lastProgress!!.timeLeft != null) {
-                                Text(
-                                    modifier = Modifier
-                                        .padding(top = 8.dp)
-                                        .align(Alignment.CenterHorizontally),
-                                    text = "${lastProgress!!.timeLeft!!.toMinutesSeconds()} left",
-                                )
-                            }
-                        }
-                    }
+                    ProgressIndicator(progress = lastProgress)
 
                     Spacer(modifier = Modifier.height(8.dp))
 

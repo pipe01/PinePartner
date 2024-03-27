@@ -11,6 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import net.pipe01.pinepartner.utils.unzip
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.callback.ClientBleGatt
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattServices
@@ -22,7 +23,6 @@ import java.nio.ByteOrder
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.UUID
-import java.util.zip.ZipInputStream
 
 @SuppressLint("MissingPermission")
 class Device private constructor(val address: String, private val client: ClientBleGatt, val services: ClientBleGattServices) {
@@ -149,15 +149,7 @@ class Device private constructor(val address: String, private val client: Client
     fun getBLEService(uuid: UUID) = services.findService(uuid)
 
     suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope, onProgress: (DFUProgress) -> Unit) {
-        val files = mutableMapOf<String, ByteArray>()
-
-        ZipInputStream(dfuFile).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-
-                files[entry.name] = zip.readBytes()
-            }
-        }
+        val files = dfuFile.unzip()
 
         val manifestJson = files["manifest.json"]?.decodeToString() ?: throw IllegalArgumentException("No manifest.json found")
         val manifest = Json.decodeFromString<DFUManifest>(manifestJson)
