@@ -311,12 +311,21 @@ class BackgroundService : Service() {
         }
     }
 
-    suspend fun writeFile(address: String, path: String, data: ByteArray) =
-        deviceManager.get(address)?.writeFile(path, ByteArrayInputStream(data), data.size, CoroutineScope(Dispatchers.IO))
-            ?: throw ServiceException("Device not found")
+    suspend fun writeFile(address: String, path: String, data: ByteArray) {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
-    suspend fun deleteFile(address: String, path: String) = deviceManager.get(address)?.deleteFile(path, CoroutineScope(Dispatchers.IO))
-        ?: throw ServiceException("Device not found")
+        coroutineScope {
+            deviceManager.get(address)?.writeFile(path, ByteArrayInputStream(data), data.size, this)
+        }
+    }
+
+    suspend fun deleteFile(address: String, path: String) {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+
+        coroutineScope {
+            device.deleteFile(path, this)
+        }
+    }
 
     @SuppressLint("Range")
     suspend fun sendFile(jobId: Int?, address: String, path: String, uri: Uri) {
