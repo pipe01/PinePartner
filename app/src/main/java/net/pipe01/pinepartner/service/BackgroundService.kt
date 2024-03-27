@@ -192,10 +192,9 @@ class BackgroundService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(NOTIF_CHANNEL_ID, "Background Service Notification", NotificationManager.IMPORTANCE_HIGH).apply {
+        val channel = NotificationChannel(NOTIF_CHANNEL_ID, "Background Service Notification", NotificationManager.IMPORTANCE_LOW).apply {
             enableVibration(false)
             enableLights(false)
-            importance = NotificationManager.IMPORTANCE_LOW
         }
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.createNotificationChannel(channel)
