@@ -90,13 +90,25 @@ fun DevicePage(
             Spacer(modifier = Modifier.height(10.dp))
 
             Setting(
-                name = "Connect automatically",
+                name = "Connect on app start",
                 value = watch!!.autoConnect,
                 onValueChange = {
                     watch = watch!!.copy(autoConnect = it)
 
                     coroutineScope.launch {
                         db.watchDao().setAutoConnect(deviceAddress, it)
+                    }
+                }
+            )
+            Setting(
+                name = "Reconnect automatically",
+                value = watch!!.reconnect,
+                onValueChange = {
+                    watch = watch!!.copy(reconnect = it)
+
+                    coroutineScope.launch {
+                        db.watchDao().setReconnect(deviceAddress, it)
+                        backgroundService.setWatchReconnect(deviceAddress, it)
                     }
                 }
             )

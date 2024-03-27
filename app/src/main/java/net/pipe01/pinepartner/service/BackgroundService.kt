@@ -173,7 +173,7 @@ class BackgroundService : Service() {
 
             db.watchDao().getAll().forEach {
                 if (it.autoConnect) {
-                    deviceManager.connect(it.address, this)
+                    deviceManager.connect(it.address, this, it.reconnect)
                 }
             }
         }
@@ -230,11 +230,18 @@ class BackgroundService : Service() {
     }
 
     suspend fun connectWatch(address: String) = Result.runCatching {
-        deviceManager.connect(address, CoroutineScope(Dispatchers.IO))
+        val reconnect = db.watchDao().getReconnect(address)
+
+        deviceManager.connect(address, CoroutineScope(Dispatchers.IO), reconnect)
     }
 
     fun disconnectWatch(address: String) = Result.runCatching {
         deviceManager.disconnect(address)
+    }
+
+    fun setWatchReconnect(address: String, reconnect: Boolean) = Result.runCatching {
+        val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
+        device.reconnect = reconnect
     }
 
     suspend fun getWatchState(address: String) = Result.runCatching {

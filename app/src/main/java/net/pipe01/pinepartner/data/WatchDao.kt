@@ -22,4 +22,10 @@ interface WatchDao {
 
     @Query("UPDATE watch SET autoConnect = :autoConnect WHERE address = :address")
     suspend fun setAutoConnect(address: String, autoConnect: Boolean)
+
+    @Query("SELECT reconnect FROM watch WHERE address = :address")
+    suspend fun getReconnect(address: String): Boolean
+
+    @Query("UPDATE watch SET reconnect = :reconnect WHERE address = :address")
+    suspend fun setReconnect(address: String, reconnect: Boolean)
 }

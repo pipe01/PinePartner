@@ -22,7 +22,7 @@ class DeviceManager(private val context: Context) {
 
     fun get(address: String) = devicesMap[address]
 
-    suspend fun connect(address: String, coroutineScope: CoroutineScope) {
+    suspend fun connect(address: String, coroutineScope: CoroutineScope, reconnect: Boolean) {
         Log.i(TAG, "Connecting to watch $address")
 
         val device = devicesMap[address]
@@ -38,6 +38,7 @@ class DeviceManager(private val context: Context) {
 
         val dev = Device.connect(context, coroutineScope, address)
 
+        dev.reconnect = reconnect
         dev.setCurrentTime()
 
         Log.i(TAG, "Connected to watch $address")

@@ -7,6 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
@@ -15,25 +16,39 @@ import net.pipe01.pinepartner.utils.unzip
 import no.nordicsemi.android.common.core.DataByteArray
 import no.nordicsemi.android.kotlin.ble.client.main.callback.ClientBleGatt
 import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattServices
+import no.nordicsemi.android.kotlin.ble.core.data.BleGattConnectOptions
 import no.nordicsemi.android.kotlin.ble.core.data.BleWriteType
+import no.nordicsemi.android.kotlin.ble.core.data.GattConnectionState
 import no.nordicsemi.android.kotlin.ble.core.errors.GattOperationException
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.Timer
 import java.util.UUID
+import kotlin.concurrent.scheduleAtFixedRate
 
 @SuppressLint("MissingPermission")
-class Device private constructor(val address: String, private val client: ClientBleGatt, val services: ClientBleGattServices) {
+class Device private constructor(
+    val address: String,
+    private val client: ClientBleGatt,
+    services: ClientBleGattServices,
+) {
     private val TAG = "Device"
 
     private val callMutex = Mutex()
+    private val reconnectTimer = Timer()
 
     private var firmwareRevision: String? = null
 
     private var batteryLevel: Float? = null
     private var batteryLevelCheckTime: LocalDateTime? = null
+
+    var reconnect: Boolean = false
+
+    var services = services
+        private set
 
     val mtu
         get() = client.mtu.value
@@ -47,6 +62,7 @@ class Device private constructor(val address: String, private val client: Client
                 context = context,
                 macAddress = address,
                 scope = coroutineScope,
+                options = BleGattConnectOptions(closeOnDisconnect = false),
             )
 
             client.requestMtu(517) // Needed for BLEFS
@@ -60,10 +76,33 @@ class Device private constructor(val address: String, private val client: Client
         }
     }
 
+    init {
+        reconnectTimer.scheduleAtFixedRate(5000, 5000) {
+            if (!isConnected && reconnect) {
+                Log.i(TAG, "Reconnecting to device")
+
+                try {
+                    client.reconnect()
+
+                    if (client.connectionStateWithStatus.value?.state == GattConnectionState.STATE_CONNECTED) {
+                        Log.i(TAG, "Reconnected to device")
+                        runBlocking {
+                            this@Device.services = client.discoverServices()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to reconnect", e)
+                }
+            }
+        }
+    }
+
     fun disconnect() {
         Log.i(TAG, "Disconnecting from device")
 
+        reconnectTimer.cancel()
         client.disconnect()
+        client.close()
     }
 
     private suspend fun <T> doCall(fn: suspend () -> T): T {
