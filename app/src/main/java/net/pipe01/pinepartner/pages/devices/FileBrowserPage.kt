@@ -505,10 +505,10 @@ private fun UploadDialog(
     if (chosenFileUri != null) {
         AlertDialog(
             onDismissRequest = { },
-            confirmButton = { /*TODO*/ },
+            confirmButton = { },
             text = {
                 Column {
-                    ProgressIndicator(progress = lastProgress)
+                    ProgressIndicator("Uploading", lastProgress)
 
                     Spacer(modifier = Modifier.height(8.dp))
 

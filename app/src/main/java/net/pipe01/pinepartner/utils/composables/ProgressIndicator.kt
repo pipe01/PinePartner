@@ -14,6 +14,7 @@ import net.pipe01.pinepartner.utils.toMinutesSeconds
 
 @Composable
 fun ProgressIndicator(
+    task: String,
     progress: TransferProgress?
 ) {
     if (progress == null) {
@@ -24,7 +25,7 @@ fun ProgressIndicator(
                 modifier = Modifier
                     .padding(vertical = 8.dp)
                     .align(Alignment.CenterHorizontally),
-                text = "Uploading file: ${(progress.totalProgress * 100).toInt()}%",
+                text = "${task}: ${(progress.totalProgress * 100).toInt()}%",
             )
 
             LinearProgressIndicator(progress = { progress.totalProgress })

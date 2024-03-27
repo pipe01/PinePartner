@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 class ProgressReporter(
     var totalSize: Long,
     private val onProgress: (TransferProgress) -> Unit,
-    reportInterval: Duration = Duration.ofMillis(2000),
+    reportInterval: Duration = Duration.ofMillis(1000),
 ): Closeable {
     private val timer = Timer()
     private val sent = AtomicLong()

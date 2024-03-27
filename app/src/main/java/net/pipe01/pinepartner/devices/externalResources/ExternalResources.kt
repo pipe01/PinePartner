@@ -48,6 +48,8 @@ suspend fun Device.uploadExternalResources(zipStream: InputStream, coroutineScop
 
     val forSureExistsPaths = mutableSetOf<String>()
 
+    var cumProgress = 0f
+
     manifest.resources.forEach { res ->
         val data = files[res.filename] ?: throw IllegalArgumentException("Resource file ${res.filename} not found in zip")
         val path = cleanPath(res.path)
@@ -62,12 +64,16 @@ suspend fun Device.uploadExternalResources(zipStream: InputStream, coroutineScop
 
         writeFile(path, ByteArrayInputStream(data), data.size, coroutineScope) {
             onProgress(
-                it.copy(
-                    totalProgress = it.totalProgress / manifest.resources.size,
+                TransferProgress(
+                    totalProgress = cumProgress + it.totalProgress / manifest.resources.size,
+                    bytesPerSecond = it.bytesPerSecond,
                     timeLeft = null,
+                    isDone = false,
                 )
             )
         }
+
+        cumProgress += 1f / manifest.resources.size
 
         delay(200) // Prevent overwhelming the watch
     }
