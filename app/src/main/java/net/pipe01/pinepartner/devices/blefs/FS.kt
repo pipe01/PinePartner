@@ -463,3 +463,23 @@ suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) = 
         throw BLEFSException("Create folder failed", LittleFSError.fromValue(status))
     }
 }
+
+suspend fun Device.createAllFolders(path: String, coroutineScope: CoroutineScope) {
+    Log.d(TAG, "Creating all folders for $path")
+
+    val parts = path.removePrefix("/").split("/")
+
+    var currentPath = ""
+
+    for (part in parts) {
+        currentPath = joinPaths(currentPath, part)
+
+        try {
+            createFolder(currentPath, coroutineScope)
+        } catch (e: BLEFSException) {
+            if (e.errorCode != LittleFSError.EXIST) {
+                throw e
+            }
+        }
+    }
+}
