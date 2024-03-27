@@ -12,6 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
@@ -219,7 +220,7 @@ suspend fun Device.readFile(
     output: OutputStream,
     coroutineScope: CoroutineScope,
     onProgress: (TransferProgress) -> Unit = { }
-) {
+) = mutex.withLock {
     val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
     val pathBytes = path.toByteArray()
@@ -289,15 +290,13 @@ suspend fun Device.writeFile(
     totalSize: Int,
     coroutineScope: CoroutineScope,
     onProgress: (TransferProgress) -> Unit = { }
-) {
+) = mutex.withLock {
     val headerSize = 12
     val buffer = ByteArray(mtu - 16) // Size determined through experimentation, any larger crashes the watch
 
     var sent = 0
 
     Log.d(TAG, "Writing file $path, $totalSize bytes, buffer size is ${buffer.size} bytes")
-
-    //TODO: Lock
 
     val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
@@ -357,7 +356,7 @@ suspend fun Device.writeFile(
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) {
+suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
     val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
     val pathBytes = path.toByteArray()
@@ -381,10 +380,10 @@ suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) {
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List<File> {
+suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List<File> = mutex.withLock {
     val files = mutableListOf<File>()
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use<RequestChannel, List<File>> { channel ->
         val pathBytes = path.toByteArray()
 
         fun parseFile(buffer: ByteBuffer): File? {
@@ -440,7 +439,7 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 }
 
 @SuppressLint("MissingPermission")
-suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) {
+suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
     val channel = RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope)
 
     val pathBytes = path.toByteArray()
