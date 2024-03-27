@@ -31,6 +31,7 @@ import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
+import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.devices.blefs.createFolder
 import net.pipe01.pinepartner.devices.blefs.deleteFile
@@ -248,10 +249,10 @@ class BackgroundService : Service() {
 
         Log.d(TAG, "Get watch $address state")
 
-        if (device?.isConnected == true)
-            WatchState(true, device.getFirmwareRevision(), device.getBatteryLevel())
+        if (device?.status == Device.Status.CONNECTED)
+            WatchState(device.status, device.getFirmwareRevision(), device.getBatteryLevel())
         else
-            WatchState(false, "", 0f)
+            WatchState(device?.status ?: Device.Status.DISCONNECTED, "", 0f)
     }
 
     suspend fun startWatchDFU(jobId: Int, address: String, uri: Uri) = Result.runCatching {

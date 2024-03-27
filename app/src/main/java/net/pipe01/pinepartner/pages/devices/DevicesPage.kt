@@ -42,6 +42,7 @@ import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
+import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
@@ -199,14 +200,16 @@ private fun DeviceItem(
             )
 
             Text(
-                text = if (state?.isConnected == true)
-                    "Connected, battery: %.0f%%".format(state!!.batteryLevel * 100)
-                else
-                    "Not connected",
+                text = when (state?.status) {
+                    Device.Status.CONNECTED -> "Connected, battery: %.0f%%".format(state!!.batteryLevel * 100)
+                    Device.Status.RECONNECTING -> "Reconnecting..."
+                    Device.Status.DISCONNECTED -> "Disconnected"
+                    else -> "Unknown status"
+                }
             )
         }
 
-        if (state?.isConnected == true) {
+        if (state?.status == Device.Status.CONNECTED) {
             Button(onClick = {
                 coroutineScope.launch {
                     backgroundService.disconnectWatch(watch.address).onFailure {

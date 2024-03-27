@@ -18,7 +18,7 @@ class DeviceManager(private val context: Context) {
     val deviceDisconnected = _deviceDisconnected.toEvent()
 
     val connectedDevices: List<Device>
-        get() = devicesMap.values.filter { it.isConnected }
+        get() = devicesMap.values.filter { it.status == Device.Status.CONNECTED }
 
     fun get(address: String) = devicesMap[address]
 
@@ -27,7 +27,7 @@ class DeviceManager(private val context: Context) {
 
         val device = devicesMap[address]
         if (device != null) {
-            if (!device.isConnected) {
+            if (device.status != Device.Status.CONNECTED) {
                 Log.d(TAG, "Cleaning up old device")
                 devicesMap.remove(address)
             } else {

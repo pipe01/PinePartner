@@ -28,7 +28,7 @@ class WatchAdapter : ApiScriptableObject(WatchAdapter::class) {
     fun getAddress() = device.address
 
     @JSGetter
-    fun getIsConnected() = device.isConnected
+    fun getIsConnected() = device.status == Device.Status.CONNECTED
 
     @JSFunction
     fun sendNotification(title: String, body: String) {

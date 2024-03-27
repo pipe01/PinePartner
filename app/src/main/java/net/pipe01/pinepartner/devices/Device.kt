@@ -37,6 +37,12 @@ class Device private constructor(
     private val client: ClientBleGatt,
     private var services: ClientBleGattServices,
 ) {
+    enum class Status {
+        CONNECTED,
+        DISCONNECTED,
+        RECONNECTING,
+    }
+
     private val TAG = "Device"
 
     private val callMutex = Mutex()
@@ -52,8 +58,12 @@ class Device private constructor(
     val mtu
         get() = client.mtu.value
 
-    val isConnected
-        get() = client.isConnected
+    val status
+        get() = when {
+            client.isConnected -> Status.CONNECTED
+            reconnect -> Status.RECONNECTING
+            else -> Status.DISCONNECTED
+        }
 
     companion object {
         suspend fun connect(context: Context, coroutineScope: CoroutineScope, address: String): Device {
@@ -77,7 +87,7 @@ class Device private constructor(
 
     init {
         reconnectTimer.scheduleAtFixedRate(5000, 5000) {
-            if (!isConnected && reconnect) {
+            if (!client.isConnected && reconnect) {
                 Log.i(TAG, "Reconnecting to device")
 
                 try {
@@ -134,7 +144,7 @@ class Device private constructor(
     }
 
     private suspend fun <T> doCall(fn: suspend () -> T): T {
-        if (!isConnected) throw IllegalStateException("Device not connected")
+        if (!client.isConnected) throw IllegalStateException("Device not connected")
 
         return callMutex.withLock { fn() }
     }
@@ -191,7 +201,7 @@ class Device private constructor(
         write(InfiniTime.CurrentTimeService.CURRENT_TIME, bytes)
     }
 
-    suspend fun setCurrentWeather(weather: CurrentWeather) {
+    suspend fun setCurrentWeather(weather: CurrentWeather) = doCall {
         val buffer = ByteBuffer.allocate(49).order(ByteOrder.LITTLE_ENDIAN)
 
         // We want local timestamp, not UTC timestamp
@@ -213,7 +223,7 @@ class Device private constructor(
         write(InfiniTime.WeatherService.WEATHER_DATA, buffer.array())
     }
 
-    suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope, onProgress: (DFUProgress) -> Unit) {
+    suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope, onProgress: (DFUProgress) -> Unit) = doCall {
         val files = dfuFile.unzip()
 
         val manifestJson = files["manifest.json"]?.decodeToString() ?: throw IllegalArgumentException("No manifest.json found")
