@@ -1,6 +1,7 @@
 package net.pipe01.pinepartner.utils.composables
 
 import android.widget.Toast
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,11 +40,17 @@ fun ErrorDialog(
                 }
             }
         },
-        title = { Text(
-            color = MaterialTheme.colorScheme.error,
-            text = error.message ?: "An error occurred",
-        ) },
-        text = { Text(error.cause?.message ?: "An error occurred") }
+        title = {
+            Text(
+                color = MaterialTheme.colorScheme.error,
+                text = error.message ?: "An error occurred",
+            )
+        },
+        text = {
+            SelectionContainer {
+                Text(error.cause?.message ?: "An error occurred")
+            }
+        }
     )
 }
 
