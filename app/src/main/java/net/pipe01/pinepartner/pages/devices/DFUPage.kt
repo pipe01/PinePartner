@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.service.BackgroundService
@@ -30,6 +31,7 @@ import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Duration
+import kotlin.random.Random
 
 @Composable
 fun DFUPage(
@@ -44,10 +46,10 @@ fun DFUPage(
     var showErrorDialog by remember { mutableStateOf<Error?>(null) }
 
     if (showErrorDialog != null) {
-         ErrorDialog(
-             error = showErrorDialog!!,
-             onDismissRequest = { showErrorDialog = null },
-         )
+        ErrorDialog(
+            error = showErrorDialog!!,
+            onDismissRequest = { showErrorDialog = null },
+        )
     }
 
     Column(
@@ -67,7 +69,10 @@ fun DFUPage(
                 onStart = onStart,
                 onFinish = onFinish,
                 onCancel = onCancel,
-                onError = { showErrorDialog = it },
+                onError = {
+                    onCancel()
+                    showErrorDialog = it
+                },
             )
         }
     }
@@ -104,7 +109,7 @@ private fun Uploader(
 ) {
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
-    var transferId by remember { mutableStateOf<Int?>(null) }
+    val jobId = remember { Random.nextInt() }
 
     if (backgroundService == null) {
         progress = TransferProgress(0.4f, 10000, Duration.ofSeconds(135), false)
@@ -112,13 +117,14 @@ private fun Uploader(
         LaunchedEffect(uri) {
             onStart()
 
-            transferId = backgroundService.startWatchDFU(address, uri).onFailure {
-                onError(Error("Failed to do DFU transfer", it))
-                return@LaunchedEffect
-            }.getOrNull()
+            launch {
+                backgroundService.startWatchDFU(jobId, address, uri).onFailure {
+                    onError(Error("Failed to do DFU transfer", it))
+                }
+            }
 
             while (true) {
-                progress = backgroundService.getTransferProgress(transferId!!)
+                progress = backgroundService.getTransferProgress(jobId)
 
                 if (progress?.isDone == true) {
                     onFinish()
@@ -151,24 +157,24 @@ private fun Uploader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                progress = { progress!!.totalProgress },
+                progress = { progress?.totalProgress ?: 0f },
             )
 
-            if (progress!!.bytesPerSecond != null) {
+            if (progress?.bytesPerSecond != null) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = "${progress!!.bytesPerSecond!!} Bytes/s",
+                    text = "${progress?.bytesPerSecond ?: 0} Bytes/s",
                 )
             }
 
-            if (progress!!.timeLeft != null) {
+            if (progress?.timeLeft != null) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                    text = progress!!.timeLeft!!.toMinutesSeconds(),
+                    text = progress?.timeLeft?.toMinutesSeconds() ?: "",
                 )
             }
 
@@ -176,7 +182,7 @@ private fun Uploader(
 
             Button(onClick = {
                 runBlocking {
-                    backgroundService!!.cancelTransfer(transferId!!)
+                    backgroundService!!.cancelTransfer(jobId)
 
                     onCancel()
                 }

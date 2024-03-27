@@ -1,14 +1,16 @@
 package net.pipe01.pinepartner.scripting.api.adapters
 
 import android.annotation.SuppressLint
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.scripting.api.ApiScriptableObject
-import no.nordicsemi.android.common.core.DataByteArray
-import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.annotations.JSFunction
@@ -17,14 +19,19 @@ import org.mozilla.javascript.typedarrays.NativeArrayBuffer
 import org.mozilla.javascript.typedarrays.NativeUint8Array
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.UUID
 
 class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::class) {
-    private lateinit var characteristic: ClientBleGattCharacteristic
+    private lateinit var device: Device
+    private lateinit var serviceId: UUID
+    private lateinit var characteristicId: UUID
 
     private val subscriptionScopes = mutableMapOf<Function, CoroutineScope>()
 
-    fun init(characteristic: ClientBleGattCharacteristic) {
-        this.characteristic = characteristic
+    fun init(device: Device, serviceId: UUID, characteristicId: UUID) {
+        this.device = device
+        this.serviceId = serviceId
+        this.characteristicId = characteristicId
     }
 
     override fun finalize() {
@@ -34,22 +41,22 @@ class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::c
     }
 
     @JSGetter
-    fun getUuid() = characteristic.uuid.toString()
+    fun getUuid() = characteristicId.toString()
 
     @SuppressLint("MissingPermission")
     @JSFunction
     fun write(value: Any) {
         val data = when (value) {
-            is NativeArrayBuffer -> DataByteArray(value.buffer)
-            is NativeUint8Array -> DataByteArray(value.buffer.buffer)
-            is String -> DataByteArray.from(value)
-            is Long -> DataByteArray(ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(value).array())
-            is Int -> DataByteArray(ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(value).array())
+            is NativeArrayBuffer -> value.buffer
+            is NativeUint8Array -> value.buffer.buffer
+            is String -> value.toByteArray()
+            is Long -> ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN).putLong(value).array()
+            is Int -> ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(value).array()
             else -> throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid value type"))
         }
 
         runBlocking {
-            characteristic.write(data)
+            device.write(serviceId, characteristicId, data)
         }
     }
 
@@ -57,20 +64,20 @@ class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::c
     @JSFunction
     fun read(): NativeArrayBuffer {
         val data = runBlocking {
-            characteristic.read()
+            device.read(serviceId, characteristicId)
         }
 
-        return getArrayBuffer(data.value)
+        return getArrayBuffer(data)
     }
 
     @SuppressLint("MissingPermission")
     @JSFunction
     fun readString(): String {
         val data = runBlocking {
-            characteristic.read()
+            device.read(serviceId, characteristicId)
         }
 
-        return data.value.toString()
+        return data.toString()
     }
 
     @JSFunction
@@ -86,9 +93,11 @@ class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::c
         subscriptionScopes[cb] = coroutineScope
 
         coroutineScope.launch {
-            characteristic.getNotifications()
+            device.notify(serviceId, characteristicId)
+                .onStart { Log.d("BLECharacteristicAdapter", "Start") }
+                .onCompletion { Log.d("BLECharacteristicAdapter", "Completed") }
                 .collect {
-                    enterAndCall(cb) { arrayOf(getArrayBuffer(it.value)) }
+                    enterAndCall(cb) { arrayOf(getArrayBuffer(it)) }
                 }
         }
     }

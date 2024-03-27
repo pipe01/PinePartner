@@ -6,6 +6,8 @@ import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -33,7 +35,7 @@ import kotlin.concurrent.scheduleAtFixedRate
 class Device private constructor(
     val address: String,
     private val client: ClientBleGatt,
-    services: ClientBleGattServices,
+    private var services: ClientBleGattServices,
 ) {
     private val TAG = "Device"
 
@@ -46,9 +48,6 @@ class Device private constructor(
     private var batteryLevelCheckTime: LocalDateTime? = null
 
     var reconnect: Boolean = false
-
-    var services = services
-        private set
 
     val mtu
         get() = client.mtu.value
@@ -105,6 +104,35 @@ class Device private constructor(
         client.close()
     }
 
+    suspend inline fun write(char: Characteristic, data: ByteArray, writeType: BleWriteType = BleWriteType.DEFAULT) =
+        write(char.serviceUuid, char.uuid, data, writeType)
+
+    suspend fun write(serviceId: UUID, characteristicId: UUID, data: ByteArray, writeType: BleWriteType = BleWriteType.DEFAULT) {
+        val bleChar =
+            services.findService(serviceId)?.findCharacteristic(characteristicId) ?: throw IllegalArgumentException("Characteristic not found")
+
+        bleChar.write(DataByteArray(data), writeType)
+    }
+
+    suspend inline fun read(char: Characteristic) = read(char.serviceUuid, char.uuid)
+    suspend fun read(serviceId: UUID, characteristicId: UUID): ByteArray {
+        val bleChar =
+            services.findService(serviceId)?.findCharacteristic(characteristicId) ?: throw IllegalArgumentException("Characteristic not found")
+
+        return bleChar.read().value
+    }
+
+    suspend inline fun notify(char: Characteristic) = notify(char.serviceUuid, char.uuid)
+    suspend fun notify(serviceId: UUID, characteristicId: UUID) = flow {
+        val bleChar =
+            services.findService(serviceId)?.findCharacteristic(characteristicId) ?: throw IllegalArgumentException("Characteristic not found")
+
+        bleChar.getNotifications()
+            .collect {
+                emit(it.value)
+            }
+    }
+
     private suspend fun <T> doCall(fn: suspend () -> T): T {
         if (!isConnected) throw IllegalStateException("Device not connected")
 
@@ -115,7 +143,7 @@ class Device private constructor(
         if (batteryLevel == null || LocalDateTime.now().isAfter(batteryLevelCheckTime!!.plusMinutes(1))) {
             Log.i(TAG, "Reading battery level")
 
-            batteryLevel = InfiniTime.BatteryService.BATTERY_LEVEL.bind(services).read().value[0] / 100f
+            batteryLevel = read(InfiniTime.BatteryService.BATTERY_LEVEL)[0] / 100f
             batteryLevelCheckTime = LocalDateTime.now()
         }
 
@@ -126,7 +154,7 @@ class Device private constructor(
         if (firmwareRevision == null) {
             Log.i(TAG, "Reading firmware revision")
 
-            firmwareRevision = InfiniTime.DeviceInformationService.FIRMWARE_REVISION.bind(services).read().value.decodeToString()
+            firmwareRevision = read(InfiniTime.DeviceInformationService.FIRMWARE_REVISION).decodeToString()
         }
 
         return@doCall firmwareRevision!!
@@ -141,7 +169,7 @@ class Device private constructor(
         bytes.addAll(body.encodeToByteArray().toList())
         bytes.add(0)
 
-        InfiniTime.AlertNotificationService.NEW_ALERT.bind(services).write(DataByteArray(bytes.toByteArray()))
+        write(InfiniTime.AlertNotificationService.NEW_ALERT, bytes.toByteArray())
     }
 
     suspend fun setCurrentTime(time: LocalDateTime = LocalDateTime.now()) = doCall {
@@ -160,7 +188,7 @@ class Device private constructor(
             0,
         )
 
-        InfiniTime.CurrentTimeService.CURRENT_TIME.bind(services).write(DataByteArray(bytes))
+        write(InfiniTime.CurrentTimeService.CURRENT_TIME, bytes)
     }
 
     suspend fun setCurrentWeather(weather: CurrentWeather) {
@@ -182,10 +210,8 @@ class Device private constructor(
         buffer.position(48)
         buffer.put(weather.icon.id)
 
-        InfiniTime.WeatherService.WEATHER_DATA.bind(services).write(DataByteArray(buffer.array()))
+        write(InfiniTime.WeatherService.WEATHER_DATA, buffer.array())
     }
-
-    fun getBLEService(uuid: UUID) = services.findService(uuid)
 
     suspend fun flashDFU(dfuFile: InputStream, coroutineScope: CoroutineScope, onProgress: (DFUProgress) -> Unit) {
         val files = dfuFile.unzip()
@@ -196,13 +222,14 @@ class Device private constructor(
         val binFile = files[manifest.manifest.application.bin_file] ?: throw IllegalArgumentException("No bin file found")
         val datFile = files[manifest.manifest.application.dat_file] ?: throw IllegalArgumentException("No dat file found")
 
-        val packet = InfiniTime.DFUService.PACKET.bind(services)
-        val controlPoint = InfiniTime.DFUService.CONTROL_POINT.bind(services)
+        val packet = InfiniTime.DFUService.PACKET
+        val controlPoint = InfiniTime.DFUService.CONTROL_POINT
 
         val controlChannel = Channel<ByteArray>()
         val controlJob = coroutineScope.launch {
-            controlPoint.getNotifications()
-                .collect { controlChannel.send(it.value) }
+            notify(controlPoint)
+                .onCompletion { controlChannel.close() }
+                .collect { controlChannel.send(it) }
         }
 
         suspend fun expectReceive(vararg expect: Byte) {
@@ -221,20 +248,19 @@ class Device private constructor(
 
         Log.i(TAG, "Step 1")
         onProgress(DFUProgress.createInitializing(1))
-        controlPoint.write(DataByteArray(byteArrayOf(0x01, 0x04)))
+        write(controlPoint, byteArrayOf(0x01, 0x04))
 
         Log.i(TAG, "Step 2")
         onProgress(DFUProgress.createInitializing(2))
-        packet.write(
-            DataByteArray(
-                ByteBuffer
-                    .allocate(12)
-                    .order(ByteOrder.LITTLE_ENDIAN)
-                    .putInt(0)
-                    .putInt(0)
-                    .putInt(binFile.size)
-                    .array()
-            ),
+        write(
+            packet,
+            ByteBuffer
+                .allocate(12)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(0)
+                .putInt(0)
+                .putInt(binFile.size)
+                .array(),
             BleWriteType.NO_RESPONSE
         )
 
@@ -244,15 +270,15 @@ class Device private constructor(
 
         Log.i(TAG, "Step 3.1")
         onProgress(DFUProgress.createInitializing(4))
-        controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x00)))
+        write(controlPoint, byteArrayOf(0x02, 0x00))
 
         Log.i(TAG, "Step 4")
         onProgress(DFUProgress.createInitializing(5))
-        packet.write(DataByteArray(datFile), BleWriteType.NO_RESPONSE)
+        write(packet, datFile, BleWriteType.NO_RESPONSE)
 
         Log.i(TAG, "Step 4.1")
         onProgress(DFUProgress.createInitializing(6))
-        controlPoint.write(DataByteArray(byteArrayOf(0x02, 0x01)))
+        write(controlPoint, byteArrayOf(0x02, 0x01))
 
         Log.i(TAG, "Step 5")
         onProgress(DFUProgress.createInitializing(7))
@@ -262,11 +288,11 @@ class Device private constructor(
 
         Log.i(TAG, "Step 5.1")
         onProgress(DFUProgress.createInitializing(8))
-        controlPoint.write(DataByteArray(byteArrayOf(0x08, receiptInterval.toByte())))
+        write(controlPoint, byteArrayOf(0x08, receiptInterval.toByte()))
 
         Log.i(TAG, "Step 6")
         onProgress(DFUProgress.createInitializing(9))
-        controlPoint.write(DataByteArray(byteArrayOf(0x03)))
+        write(controlPoint, byteArrayOf(0x03))
 
         Log.i(TAG, "Step 7")
 
@@ -302,7 +328,7 @@ class Device private constructor(
             val until = if (i + 20 > binFile.size) binFile.size else i + 20
 
             val chunk = binFile.sliceArray(i until until)
-            packet.write(DataByteArray(chunk), BleWriteType.NO_RESPONSE)
+            write(packet, chunk, BleWriteType.NO_RESPONSE)
 
             sentChunks++
 
@@ -319,7 +345,7 @@ class Device private constructor(
 
         Log.i(TAG, "Step 8.1")
         onProgress(DFUProgress.createFinishing(2))
-        controlPoint.write(DataByteArray(byteArrayOf(0x04)))
+        write(controlPoint, byteArrayOf(0x04))
 
         Log.i(TAG, "Step 9")
         onProgress(DFUProgress.createFinishing(3))
@@ -330,7 +356,7 @@ class Device private constructor(
         Log.i(TAG, "Step 9.1")
         onProgress(DFUProgress.createFinishing(4))
         try {
-            controlPoint.write(DataByteArray(byteArrayOf(0x05)))
+            write(controlPoint, byteArrayOf(0x05))
         } catch (e: GattOperationException) {
             // Expected
         }

@@ -1,28 +1,29 @@
 package net.pipe01.pinepartner.scripting.api.adapters
 
+import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.scripting.api.ApiScriptableObject
-import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattService
 import org.mozilla.javascript.annotations.JSFunction
 import org.mozilla.javascript.annotations.JSGetter
 import java.util.UUID
 
 class BLEServiceAdapter : ApiScriptableObject(BLEServiceAdapter::class) {
-    private lateinit var service: ClientBleGattService
+    private lateinit var device: Device
+    private lateinit var serviceId: UUID
 
-    fun init(service: ClientBleGattService) {
-        this.service = service
+    fun init(device: Device, serviceId: UUID) {
+        this.device = device
+        this.serviceId = serviceId
     }
 
     @JSGetter
-    fun getUuid() = service.uuid.toString()
+    fun getUuid() = serviceId.toString()
 
     @JSFunction
-    fun getCharacteristic(uuidStr: String): BLECharacteristicAdapter? {
+    fun getCharacteristic(uuidStr: String): BLECharacteristicAdapter {
         val uuid = UUID.fromString(uuidStr)
-        val characteristic = service.findCharacteristic(uuid) ?: return null
 
         return newObject(BLECharacteristicAdapter::class) {
-            init(characteristic)
+            init(device, serviceId, uuid)
         }
     }
 }

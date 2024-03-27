@@ -1,15 +1,10 @@
 package net.pipe01.pinepartner.devices
 
-import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
-import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattServices
 import java.util.UUID
 
-class Characteristic(private val serviceUuid: String, private val uuid: String) {
-    fun bind(services: ClientBleGattServices): ClientBleGattCharacteristic {
-        val service = services.findService(UUID.fromString(serviceUuid)) ?: throw IllegalArgumentException("Service not found")
-
-        return service.findCharacteristic(UUID.fromString(uuid)) ?: throw IllegalArgumentException("Characteristic not found")
-    }
+class Characteristic(serviceUuidStr: String, uuidStr: String) {
+    val serviceUuid = UUID.fromString(serviceUuidStr)
+    val uuid = UUID.fromString(uuidStr)
 }
 
 object InfiniTime {

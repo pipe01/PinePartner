@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import net.pipe01.pinepartner.devices.Characteristic
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
 import net.pipe01.pinepartner.service.TransferProgress
@@ -23,8 +24,6 @@ import net.pipe01.pinepartner.utils.ProgressReporter
 import net.pipe01.pinepartner.utils.SuspendClosable
 import net.pipe01.pinepartner.utils.joinToHexString
 import net.pipe01.pinepartner.utils.use
-import no.nordicsemi.android.common.core.DataByteArray
-import no.nordicsemi.android.kotlin.ble.client.main.service.ClientBleGattCharacteristic
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.ByteBuffer
@@ -95,7 +94,8 @@ fun cleanPath(path: String): String {
 }
 
 private class RequestChannel(
-    private val characteristic: ClientBleGattCharacteristic,
+    private val device: Device,
+    private val characteristic: Characteristic,
     coroutineScope: CoroutineScope,
 ) : SuspendClosable {
     private val tag = "RequestChannel-${Random.nextInt(10000, 99999)}"
@@ -108,17 +108,16 @@ private class RequestChannel(
 
     init {
         notifJob = coroutineScope.launch {
-            characteristic
-                .getNotifications()
-                .onStart { Log.d(tag, "Notifications started")}
+            device.notify(characteristic)
+                .onStart { Log.d(tag, "Notifications started") }
                 .onCompletion {
                     Log.d(tag, "Notifications done")
                     channel.close()
                     closeCompletable.complete(Unit)
                 }
                 .collect {
-                    Log.d(tag, "Notification: ${it.value.joinToHexString()}")
-                    channel.send(it.value)
+                    Log.d(tag, "Notification: ${it.joinToHexString()}")
+                    channel.send(it)
                 }
         }
     }
@@ -149,7 +148,7 @@ private class RequestChannel(
             triesLeft--
 
             try {
-                characteristic.write(DataByteArray(req))
+                device.write(characteristic, req)
             } catch (e: Exception) {
                 Log.e(tag, "Failed to write request", e)
 
@@ -241,7 +240,7 @@ suspend fun Device.readFile(
 
     Log.d(TAG, "Reading file $path, wantChunkSize=$wantChunkSize")
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+    RequestChannel(this, InfiniTime.FileSystemService.RAW_TRANSFER, coroutineScope).use { channel ->
         ProgressReporter(0, onProgress).use { reporter ->
             var resp = channel.send(
                 expectCommand = 0x11,
@@ -315,7 +314,7 @@ suspend fun Device.writeFile(
 
     Log.d(TAG, "Writing file $path, $totalSize bytes, buffer size is ${buffer.size} bytes")
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+    RequestChannel(this, InfiniTime.FileSystemService.RAW_TRANSFER, coroutineScope).use { channel ->
         val pathBytes = path.toByteArray()
 
         var resp = channel.send(
@@ -376,7 +375,7 @@ suspend fun Device.writeFile(
 suspend fun Device.deleteFile(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
     Log.d(TAG, "Deleting file $path")
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+    RequestChannel(this, InfiniTime.FileSystemService.RAW_TRANSFER, coroutineScope).use { channel ->
         val pathBytes = path.toByteArray()
 
         val resp = channel.send(
@@ -404,7 +403,7 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 
     val files = mutableListOf<File>()
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use<RequestChannel, List<File>> { channel ->
+    RequestChannel(this, InfiniTime.FileSystemService.RAW_TRANSFER, coroutineScope).use<RequestChannel, List<File>> { channel ->
         val pathBytes = path.toByteArray()
 
         fun parseFile(buffer: ByteBuffer): File? {
@@ -463,7 +462,7 @@ suspend fun Device.listFiles(path: String, coroutineScope: CoroutineScope): List
 suspend fun Device.createFolder(path: String, coroutineScope: CoroutineScope) = mutex.withLock {
     Log.d(TAG, "Creating folder $path")
 
-    RequestChannel(InfiniTime.FileSystemService.RAW_TRANSFER.bind(services), coroutineScope).use { channel ->
+    RequestChannel(this, InfiniTime.FileSystemService.RAW_TRANSFER, coroutineScope).use { channel ->
         val pathBytes = path.toByteArray()
 
         val resp = channel.send(

@@ -46,7 +46,6 @@ import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import kotlin.random.Random
 
 
 class ServiceException : Exception {
@@ -255,13 +254,14 @@ class BackgroundService : Service() {
             WatchState(false, "", 0f)
     }
 
-    suspend fun startWatchDFU(address: String, uri: Uri) = Result.runCatching {
+    suspend fun startWatchDFU(jobId: Int, address: String, uri: Uri) = Result.runCatching {
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
-        val jobId = Random.nextInt()
 
-        val job = CoroutineScope(Dispatchers.IO).launch {
+        runJobThrowing(CoroutineScope(Dispatchers.IO), onStart = {
+            transferJobs[jobId] = TransferJob(it, TransferProgress(0f, null, null, false))
+        }) {
             contentResolver.openInputStream(uri)!!.use { stream ->
                 device.flashDFU(stream, this) {
                     transferJobs[jobId]?.progress = TransferProgress(
@@ -273,10 +273,6 @@ class BackgroundService : Service() {
                 }
             }
         }
-
-        transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
-
-        jobId
     }
 
     fun getTransferProgress(id: Int) = transferJobs[id]?.progress
