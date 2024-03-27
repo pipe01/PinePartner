@@ -11,4 +11,15 @@ data class TransferProgress(
     val bytesPerSecond: Long?,
     val timeLeft: Duration?,
     val isDone: Boolean,
-) : Parcelable
+    val exception: Exception? = null,
+) : Parcelable {
+    companion object {
+        fun error(e: Exception) = TransferProgress(
+            totalProgress = 0f,
+            bytesPerSecond = null,
+            timeLeft = null,
+            isDone = true,
+            exception = e,
+        )
+    }
+}

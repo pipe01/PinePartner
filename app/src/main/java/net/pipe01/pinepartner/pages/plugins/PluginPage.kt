@@ -62,6 +62,7 @@ fun PluginPage(
     id: String,
     onRemoved: () -> Unit,
     onViewCode: () -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -80,7 +81,10 @@ fun PluginPage(
         while (true) {
             val resp = backgroundService.getPluginEvents(id, events.lastOrNull()?.time?.toEpochSecond(ZoneOffset.UTC) ?: 0)
 
-            events.addAll(resp)
+            resp.fold(
+                onSuccess = { events.addAll(it) },
+                onFailure = { onError(Error("Failed to get plugin events", it)) }
+            )
 
             delay(1000)
         }
@@ -93,7 +97,10 @@ fun PluginPage(
             events = events,
             onRemove = {
                 coroutineScope.launch {
-                    backgroundService.deletePlugin(id)
+                    backgroundService.deletePlugin(id).onFailure {
+                        onError(Error("Failed to delete plugin", it))
+                        return@launch
+                    }
 
                     onRemoved()
                 }
@@ -113,7 +120,9 @@ fun PluginPage(
                     pluginDao.update(newPlugin)
                     plugin = newPlugin
 
-                    backgroundService.reloadPlugins()
+                    backgroundService.reloadPlugins().onFailure {
+                        onError(Error("Failed to reload plugins", it))
+                    }
 
                     Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()
                 }

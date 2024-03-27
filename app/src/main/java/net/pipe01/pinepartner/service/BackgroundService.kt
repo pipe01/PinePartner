@@ -32,7 +32,6 @@ import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.devices.WatchState
-import net.pipe01.pinepartner.devices.blefs.File
 import net.pipe01.pinepartner.devices.blefs.createFolder
 import net.pipe01.pinepartner.devices.blefs.deleteFile
 import net.pipe01.pinepartner.devices.blefs.joinPaths
@@ -40,9 +39,9 @@ import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.devices.blefs.writeFile
 import net.pipe01.pinepartner.devices.externalResources.uploadExternalResources
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
-import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.PluginManager
 import net.pipe01.pinepartner.scripting.ScriptDependencies
+import net.pipe01.pinepartner.utils.runJobThrowing
 import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.time.LocalDateTime
@@ -224,32 +223,32 @@ class BackgroundService : Service() {
 
     class ServiceBinder(val service: BackgroundService) : Binder()
 
-    suspend fun sendTestNotification() {
+    suspend fun sendTestNotification() = Result.runCatching {
         for (device in deviceManager.connectedDevices) {
             device.sendNotification(0, 1, "Test", "This is a test notification")
         }
     }
 
-    suspend fun connectWatch(address: String) {
+    suspend fun connectWatch(address: String) = Result.runCatching {
         deviceManager.connect(address, CoroutineScope(Dispatchers.IO))
     }
 
-    fun disconnectWatch(address: String) {
+    fun disconnectWatch(address: String) = Result.runCatching {
         deviceManager.disconnect(address)
     }
 
-    suspend fun getWatchState(address: String): WatchState {
+    suspend fun getWatchState(address: String) = Result.runCatching {
         val device = deviceManager.get(address)
 
         Log.d(TAG, "Get watch $address state")
 
-        return if (device?.isConnected == true)
+        if (device?.isConnected == true)
             WatchState(true, device.getFirmwareRevision(), device.getBatteryLevel())
         else
             WatchState(false, "", 0f)
     }
 
-    suspend fun startWatchDFU(address: String, uri: Uri): Int {
+    suspend fun startWatchDFU(address: String, uri: Uri) = Result.runCatching {
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
@@ -270,56 +269,56 @@ class BackgroundService : Service() {
 
         transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
 
-        return jobId
+        jobId
     }
 
     fun getTransferProgress(id: Int) = transferJobs[id]?.progress
 
-    fun cancelTransfer(id: Int) {
+    fun cancelTransfer(id: Int) = Result.runCatching {
         Log.i(TAG, "Cancelling transfer $id")
 
         transferJobs.remove(id)?.job?.cancel() ?: Log.w(TAG, "Transfer $id not found")
     }
 
-    fun getPluginEvents(id: String, afterTime: Long): Array<LogEvent> {
+    fun getPluginEvents(id: String, afterTime: Long) = Result.runCatching {
         val events = pluginManager.getEvents(id) ?: emptyList()
 
-        return events.filter { it.time.toEpochSecond(ZoneOffset.UTC) > afterTime }.toTypedArray()
+        events.filter { it.time.toEpochSecond(ZoneOffset.UTC) > afterTime }
     }
 
-    suspend fun deletePlugin(id: String) {
+    suspend fun deletePlugin(id: String) = Result.runCatching {
         pluginManager.delete(id)
     }
 
-    suspend fun enablePlugin(id: String) {
+    suspend fun enablePlugin(id: String) = Result.runCatching {
         pluginManager.enable(id)
     }
 
-    suspend fun disablePlugin(id: String) {
+    suspend fun disablePlugin(id: String) = Result.runCatching {
         pluginManager.disable(id)
     }
 
-    suspend fun reloadPlugins() {
+    suspend fun reloadPlugins() = Result.runCatching {
         pluginManager.reload()
     }
 
-    suspend fun listFiles(address: String, path: String): List<File> {
+    suspend fun listFiles(address: String, path: String) = Result.runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
-        return coroutineScope {
+        coroutineScope {
             device.listFiles(path, this)
         }
     }
 
-    suspend fun writeFile(address: String, path: String, data: ByteArray) {
+    suspend fun writeFile(address: String, path: String, data: ByteArray) = Result.runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         coroutineScope {
-            deviceManager.get(address)?.writeFile(path, ByteArrayInputStream(data), data.size, this)
+            device.writeFile(path, ByteArrayInputStream(data), data.size, this)
         }
     }
 
-    suspend fun deleteFile(address: String, path: String) {
+    suspend fun deleteFile(address: String, path: String) = Result.runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         coroutineScope {
@@ -328,7 +327,7 @@ class BackgroundService : Service() {
     }
 
     @SuppressLint("Range")
-    suspend fun sendFile(jobId: Int?, address: String, path: String, uri: Uri) {
+    suspend fun sendFile(jobId: Int, address: String, path: String, uri: Uri) = Result.runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         var size = 0
@@ -345,45 +344,32 @@ class BackgroundService : Service() {
 
         val fullPath = joinPaths(path, name)
 
-        val job = CoroutineScope(Dispatchers.IO).launch {
+        runJobThrowing(CoroutineScope(Dispatchers.IO), onStart = {
+            transferJobs[jobId] = TransferJob(it, TransferProgress(0f, null, null, false))
+        }) {
             contentResolver.openInputStream(uri)?.use { stream ->
                 device.writeFile(fullPath, stream, size, this) {
-                    if (jobId != null) {
-                        transferJobs[jobId]?.progress = it
-                    }
+                    transferJobs[jobId]?.progress = it
                 }
             }
         }
-
-        if (jobId != null) {
-            Log.i(TAG, "Started transfer job $jobId")
-
-            transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
-        }
-
-        job.join()
     }
 
-    suspend fun createFolder(address: String, path: String) =
+    suspend fun createFolder(address: String, path: String) = Result.runCatching {
         deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
+    }
 
-    suspend fun uploadResources(jobId: Int?, address: String, zipUri: Uri) {
+    suspend fun uploadResources(jobId: Int, address: String, zipUri: Uri) = Result.runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
-        val job = CoroutineScope(Dispatchers.IO).launch {
+        runJobThrowing(CoroutineScope(Dispatchers.IO), onStart = {
+            transferJobs[jobId] = TransferJob(it, TransferProgress(0f, null, null, false))
+        }) {
             contentResolver.openInputStream(zipUri)?.use { stream ->
                 device.uploadExternalResources(stream, this) {
-                    if (jobId != null) {
-                        transferJobs[jobId]?.progress = it
-                    }
+                    transferJobs[jobId]?.progress = it
                 }
             }
         }
-
-        if (jobId != null) {
-            transferJobs[jobId] = TransferJob(job, TransferProgress(0f, null, null, false))
-        }
-
-        job.join()
     }
 }

@@ -53,6 +53,7 @@ fun DevicesPage(
     backgroundService: BackgroundService,
     onAddDevice: () -> Unit,
     onDeviceClick: (address: String) -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -108,6 +109,7 @@ fun DevicesPage(
                                     }
                                 }
                             },
+                            onError = onError,
                         )
                     }
                 }
@@ -124,6 +126,7 @@ private fun DeviceItem(
     backgroundService: BackgroundService,
     onClick: () -> Unit,
     onRemoveDevice: () -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
 
@@ -134,7 +137,9 @@ private fun DeviceItem(
     LaunchedEffect(watch.address) {
         withContext(Dispatchers.Main) {
             while (true) {
-                state = backgroundService.getWatchState(watch.address)
+                state = backgroundService.getWatchState(watch.address).onFailure {
+                    onError(Error("Failed to get watch state", it))
+                }.getOrNull()
 
                 delay(1000)
             }
@@ -204,7 +209,9 @@ private fun DeviceItem(
         if (state?.isConnected == true) {
             Button(onClick = {
                 coroutineScope.launch {
-                    backgroundService.disconnectWatch(watch.address)
+                    backgroundService.disconnectWatch(watch.address).onFailure {
+                        onError(Error("Failed to disconnect watch", it))
+                    }
                 }
 
                 state = null

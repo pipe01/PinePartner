@@ -35,6 +35,7 @@ fun DevicePage(
     backgroundService: BackgroundService,
     onUploadFirmware: () -> Unit,
     onBrowseFiles: () -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -48,9 +49,14 @@ fun DevicePage(
                 throw IllegalArgumentException("Device not found")
             }
 
-            backgroundService.connectWatch(deviceAddress)
+            backgroundService.connectWatch(deviceAddress).onFailure {
+                onError(Error("Failed to connect to watch", it))
+                return@launch
+            }
 
-            state = backgroundService.getWatchState(deviceAddress)
+            state = backgroundService.getWatchState(deviceAddress).onFailure {
+                onError(Error("Failed to get watch state", it))
+            }.getOrNull()
         }
     }
 
@@ -73,7 +79,9 @@ fun DevicePage(
 
             Button(onClick = {
                 coroutineScope.launch {
-                    backgroundService.sendTestNotification()
+                    backgroundService.sendTestNotification().onFailure {
+                        onError(Error("Failed to send test notification", it))
+                    }
                 }
             }) {
                 Text(text = "Send test notification")

@@ -81,6 +81,7 @@ fun FileBrowserPage(
     deviceAddress: String,
     path: String,
     onOpenFolder: (String) -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -99,7 +100,12 @@ fun FileBrowserPage(
     suspend fun reload() {
         isLoading = true
         files.clear()
-        files.addAll(backgroundService.listFiles(deviceAddress, path))
+
+        backgroundService.listFiles(deviceAddress, path).fold(
+            onSuccess = { files.addAll(it) },
+            onFailure = { onError(Error("Failed to list files", it)) },
+        )
+
         isLoading = false
     }
 
@@ -126,6 +132,8 @@ fun FileBrowserPage(
                         backgroundService.createFolder(deviceAddress, joinPaths(path, name))
                     } else {
                         backgroundService.writeFile(deviceAddress, joinPaths(path, name), ByteArray(0))
+                    }.onFailure {
+                        onError(Error("Failed to create ${if (isFolder) "folder" else "file"}", it))
                     }
                     reload()
                 }
@@ -147,6 +155,7 @@ fun FileBrowserPage(
                 showUploadFileDialog = false
                 showFlashResourcesDialog = false
             },
+            onError = onError,
         )
     } else if (showOpenFileDialog != null) {
         FileActionsDialog(
@@ -171,7 +180,9 @@ fun FileBrowserPage(
                 showConfirmDeleteDialog = null
             },
             onDeleteFile = {
-                backgroundService.deleteFile(deviceAddress, it.fullPath)
+                backgroundService.deleteFile(deviceAddress, it.fullPath).onFailure {
+                    onError(Error("Failed to delete file", it))
+                }
             },
         )
     }
@@ -457,6 +468,7 @@ private fun UploadDialog(
     isExternalResources: Boolean,
     onDone: () -> Unit,
     onCancel: () -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -476,6 +488,8 @@ private fun UploadDialog(
                     backgroundService.uploadResources(jobId, deviceAddress, fileUri)
                 } else {
                     backgroundService.sendFile(jobId, deviceAddress, path, fileUri)
+                }.onFailure {
+                    onError(Error("Failed to upload file", it))
                 }
 
                 onDone()
@@ -515,7 +529,9 @@ private fun UploadDialog(
                     TextButton(
                         modifier = Modifier.align(Alignment.End),
                         onClick = {
-                            backgroundService.cancelTransfer(jobId)
+                            backgroundService.cancelTransfer(jobId).onFailure {
+                                onError(Error("Failed to cancel transfer", it))
+                            }
                         },
                     ) {
                         Text(text = "Cancel")

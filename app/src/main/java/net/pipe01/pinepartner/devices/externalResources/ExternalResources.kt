@@ -69,6 +69,7 @@ suspend fun Device.uploadExternalResources(zipStream: InputStream, coroutineScop
                     bytesPerSecond = it.bytesPerSecond,
                     timeLeft = null,
                     isDone = false,
+                    exception = null,
                 )
             )
         }

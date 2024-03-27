@@ -50,6 +50,7 @@ fun PluginsPage(
     backgroundService: BackgroundService,
     onPluginClicked: (Plugin) -> Unit,
     onImportPlugin: () -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -88,6 +89,7 @@ fun PluginsPage(
                         backgroundService = backgroundService,
                         plugins = plugins,
                         onPluginClicked = onPluginClicked,
+                        onError = onError,
                     )
                 }
             }
@@ -100,6 +102,7 @@ private fun PluginList(
     backgroundService: BackgroundService,
     plugins: MutableList<Plugin>,
     onPluginClicked: (Plugin) -> Unit,
+    onError: (Error) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -112,10 +115,13 @@ private fun PluginList(
                 onClick = { onPluginClicked(plugin) },
                 onEnabledChange = { enabled ->
                     coroutineScope.launch {
-                        if (enabled)
+                        if (enabled) {
                             backgroundService.enablePlugin(plugin.id)
-                        else
+                        } else {
                             backgroundService.disablePlugin(plugin.id)
+                        }.onFailure {
+                            onError(Error("Failed to change plugin state", it))
+                        }
 
                         val index = plugins.indexOf(plugin)
 

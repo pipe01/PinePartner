@@ -44,7 +44,7 @@ fun ProgressIndicator(
                     modifier = Modifier
                         .padding(top = 8.dp)
                         .align(Alignment.CenterHorizontally),
-                    text = "${progress.timeLeft!!.toMinutesSeconds()} left",
+                    text = "${progress.timeLeft.toMinutesSeconds()} left",
                 )
             }
         }

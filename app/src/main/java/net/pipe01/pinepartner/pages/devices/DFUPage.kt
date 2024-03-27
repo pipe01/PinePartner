@@ -27,6 +27,7 @@ import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
+import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Duration
 
@@ -39,6 +40,15 @@ fun DFUPage(
     onCancel: () -> Unit,
 ) {
     var uri by remember { mutableStateOf<Uri?>(null) }
+
+    var showErrorDialog by remember { mutableStateOf<Error?>(null) }
+
+    if (showErrorDialog != null) {
+         ErrorDialog(
+             error = showErrorDialog!!,
+             onDismissRequest = { showErrorDialog = null },
+         )
+    }
 
     Column(
         modifier = Modifier.padding(horizontal = 16.dp)
@@ -57,6 +67,7 @@ fun DFUPage(
                 onStart = onStart,
                 onFinish = onFinish,
                 onCancel = onCancel,
+                onError = { showErrorDialog = it },
             )
         }
     }
@@ -89,6 +100,7 @@ private fun Uploader(
     onStart: () -> Unit = { },
     onFinish: () -> Unit = { },
     onCancel: () -> Unit = { },
+    onError: (Error) -> Unit = { },
 ) {
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
@@ -100,7 +112,10 @@ private fun Uploader(
         LaunchedEffect(uri) {
             onStart()
 
-            transferId = backgroundService.startWatchDFU(address, uri)
+            transferId = backgroundService.startWatchDFU(address, uri).onFailure {
+                onError(Error("Failed to do DFU transfer", it))
+                return@LaunchedEffect
+            }.getOrNull()
 
             while (true) {
                 progress = backgroundService.getTransferProgress(transferId!!)

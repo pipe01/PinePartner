@@ -20,6 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,6 +50,7 @@ import net.pipe01.pinepartner.pages.plugins.PluginsPage
 import net.pipe01.pinepartner.pages.settings.NotificationSettingsPage
 import net.pipe01.pinepartner.pages.settings.SettingsPage
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -124,6 +127,14 @@ fun NavFrame(
     onShowBottomBar: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val errors = remember { mutableStateListOf<Error>() }
+
+    if (errors.isNotEmpty()) {
+        val error = errors.first()
+
+        ErrorDialog(error = error, onDismissRequest = { errors.removeFirst() })
+    }
+
     NavHost(
         modifier = modifier,
         navController = navController,
@@ -172,6 +183,7 @@ fun NavFrame(
                     db = db,
                     onPluginClicked = { navController.navigate("${Route.PLUGINS}/${it.id}") },
                     onImportPlugin = { navController.navigate(Route.PLUGINS_IMPORT) },
+                    onError = { errors.add(it) },
                 )
             }
             composable(Route.PLUGINS_IMPORT) {
@@ -188,6 +200,7 @@ fun NavFrame(
                     id = id!!,
                     onRemoved = { navController.navigate(Route.PLUGINS) },
                     onViewCode = { navController.navigate("${Route.PLUGINS}/${id}/code") },
+                    onError = { errors.add(it) },
                 )
             }
             composable("${Route.PLUGINS}/{id}/code") {
@@ -205,6 +218,7 @@ fun NavFrame(
                     backgroundService = backgroundService,
                     onAddDevice = { navController.navigate(Route.DEVICES_ADD) },
                     onDeviceClick = { address -> navController.navigate("${Route.DEVICES}/$address") },
+                    onError = { errors.add(it) },
                 )
             }
             composable(Route.DEVICES_ADD) {
@@ -227,6 +241,7 @@ fun NavFrame(
                     deviceAddress = address!!,
                     onUploadFirmware = { navController.navigate("${Route.DEVICES}/$address/dfu") },
                     onBrowseFiles = { navController.navigate("${Route.DEVICES}/$address/files") },
+                    onError = { errors.add(it) },
                 )
             }
             composable("${Route.DEVICES}/{address}/dfu") {
@@ -261,6 +276,7 @@ fun NavFrame(
                             navController.navigate("${Route.DEVICES}/$address/files?path=${newPathEnc}")
                         }
                     },
+                    onError = { errors.add(it) },
                 )
             }
         }
