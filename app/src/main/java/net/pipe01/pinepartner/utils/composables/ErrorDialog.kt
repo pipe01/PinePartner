@@ -2,12 +2,14 @@ package net.pipe01.pinepartner.utils.composables
 
 import android.widget.Toast
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun ErrorDialog(
@@ -37,7 +39,16 @@ fun ErrorDialog(
                 }
             }
         },
-        title = { Text(error.message ?: "An error occurred") },
+        title = { Text(
+            color = MaterialTheme.colorScheme.error,
+            text = error.message ?: "An error occurred",
+        ) },
         text = { Text(error.cause?.message ?: "An error occurred") }
     )
+}
+
+@Preview
+@Composable
+fun ErrorDialogPreview() {
+    ErrorDialog(Error("An error occurred", Exception("This is a test exception")), {})
 }
