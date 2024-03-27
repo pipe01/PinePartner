@@ -7,6 +7,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import net.pipe01.pinepartner.devices.Device
+import net.pipe01.pinepartner.devices.blefs.BLEFSException
+import net.pipe01.pinepartner.devices.blefs.LittleFSError
+import net.pipe01.pinepartner.devices.blefs.cleanPath
+import net.pipe01.pinepartner.devices.blefs.createAllFolders
 import net.pipe01.pinepartner.devices.blefs.deleteFile
 import net.pipe01.pinepartner.devices.blefs.writeFile
 import net.pipe01.pinepartner.service.TransferProgress
@@ -42,16 +46,27 @@ suspend fun Device.uploadExternalResources(zipStream: InputStream, coroutineScop
     val manifestJson = files["resources.json"]?.decodeToString() ?: throw IllegalArgumentException("manifest.json not found in zip")
     val manifest = Json.decodeFromString<ResourcesManifest>(manifestJson)
 
+    val forSureExistsPaths = mutableSetOf<String>()
+
     manifest.resources.forEach { res ->
         val data = files[res.filename] ?: throw IllegalArgumentException("Resource file ${res.filename} not found in zip")
+        val path = cleanPath(res.path)
 
-        Log.d(TAG, "Uploading ${res.filename} to ${res.path} (${data.size} bytes)")
+        Log.d(TAG, "Uploading ${res.filename} to ${path} (${data.size} bytes)")
 
-        this.writeFile(res.path, ByteArrayInputStream(data), data.size, coroutineScope) {
-            onProgress(it.copy(
-                totalProgress = it.totalProgress / manifest.resources.size,
-                timeLeft = null,
-            ))
+        val folder = path.substringBeforeLast('/')
+        if (folder != "" && !forSureExistsPaths.contains(folder)) {
+            createAllFolders(folder, coroutineScope)
+            forSureExistsPaths.add(folder)
+        }
+
+        writeFile(path, ByteArrayInputStream(data), data.size, coroutineScope) {
+            onProgress(
+                it.copy(
+                    totalProgress = it.totalProgress / manifest.resources.size,
+                    timeLeft = null,
+                )
+            )
         }
 
         delay(200) // Prevent overwhelming the watch
@@ -60,7 +75,13 @@ suspend fun Device.uploadExternalResources(zipStream: InputStream, coroutineScop
     manifest.obsolete_files.forEach {
         Log.d(TAG, "Deleting obsolete file ${it.path}")
 
-        this.deleteFile(it.path, coroutineScope)
+        try {
+            this.deleteFile(it.path, coroutineScope)
+        } catch (e: BLEFSException) {
+            if (e.errorCode != LittleFSError.NOENT) {
+                throw e
+            }
+        }
 
         delay(200)
     }
