@@ -115,9 +115,7 @@ class BackgroundService : Service() {
         db = AppDatabase.create(applicationContext)
 
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-
         val mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-
         val fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(applicationContext)
 
         BuiltInPlugins.init(assets)
@@ -222,28 +220,28 @@ class BackgroundService : Service() {
 
     class ServiceBinder(val service: BackgroundService) : Binder()
 
-    suspend fun sendTestNotification() = Result.runCatching {
+    suspend fun sendTestNotification() = runCatching {
         for (device in deviceManager.connectedDevices) {
             device.sendNotification(0, 1, "Test", "This is a test notification")
         }
     }
 
-    suspend fun connectWatch(address: String) = Result.runCatching {
+    suspend fun connectWatch(address: String) = runCatching {
         val reconnect = db.watchDao().getReconnect(address)
 
         deviceManager.connect(address, CoroutineScope(Dispatchers.IO), reconnect)
     }
 
-    fun disconnectWatch(address: String) = Result.runCatching {
+    fun disconnectWatch(address: String) = runCatching {
         deviceManager.disconnect(address)
     }
 
-    fun setWatchReconnect(address: String, reconnect: Boolean) = Result.runCatching {
+    fun setWatchReconnect(address: String, reconnect: Boolean) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
         device.reconnect = reconnect
     }
 
-    suspend fun getWatchState(address: String) = Result.runCatching {
+    suspend fun getWatchState(address: String) = runCatching {
         val device = deviceManager.get(address)
 
         Log.d(TAG, "Get watch $address state")
@@ -254,7 +252,7 @@ class BackgroundService : Service() {
             WatchState(device?.status ?: Device.Status.DISCONNECTED, "", 0f)
     }
 
-    suspend fun startWatchDFU(jobId: Int, address: String, uri: Uri) = Result.runCatching {
+    suspend fun startWatchDFU(jobId: Int, address: String, uri: Uri) = runCatching {
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
@@ -277,35 +275,35 @@ class BackgroundService : Service() {
 
     fun getTransferProgress(id: Int) = transferJobs[id]?.progress
 
-    fun cancelTransfer(id: Int) = Result.runCatching {
+    fun cancelTransfer(id: Int) = runCatching {
         Log.i(TAG, "Cancelling transfer $id")
 
         transferJobs.remove(id)?.job?.cancel() ?: Log.w(TAG, "Transfer $id not found")
     }
 
-    fun getPluginEvents(id: String, afterTime: Long) = Result.runCatching {
+    fun getPluginEvents(id: String, afterTime: Long) = runCatching {
         val events = pluginManager.getEvents(id) ?: emptyList()
 
         events.filter { it.time.toEpochSecond(ZoneOffset.UTC) > afterTime }
     }
 
-    suspend fun deletePlugin(id: String) = Result.runCatching {
+    suspend fun deletePlugin(id: String) = runCatching {
         pluginManager.delete(id)
     }
 
-    suspend fun enablePlugin(id: String) = Result.runCatching {
+    suspend fun enablePlugin(id: String) = runCatching {
         pluginManager.enable(id)
     }
 
-    suspend fun disablePlugin(id: String) = Result.runCatching {
+    suspend fun disablePlugin(id: String) = runCatching {
         pluginManager.disable(id)
     }
 
-    suspend fun reloadPlugins() = Result.runCatching {
+    suspend fun reloadPlugins() = runCatching {
         pluginManager.reload()
     }
 
-    suspend fun listFiles(address: String, path: String) = Result.runCatching {
+    suspend fun listFiles(address: String, path: String) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         coroutineScope {
@@ -313,7 +311,7 @@ class BackgroundService : Service() {
         }
     }
 
-    suspend fun writeFile(address: String, path: String, data: ByteArray) = Result.runCatching {
+    suspend fun writeFile(address: String, path: String, data: ByteArray) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         coroutineScope {
@@ -321,7 +319,7 @@ class BackgroundService : Service() {
         }
     }
 
-    suspend fun deleteFile(address: String, path: String) = Result.runCatching {
+    suspend fun deleteFile(address: String, path: String) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         coroutineScope {
@@ -330,7 +328,7 @@ class BackgroundService : Service() {
     }
 
     @SuppressLint("Range")
-    suspend fun sendFile(jobId: Int, address: String, path: String, uri: Uri) = Result.runCatching {
+    suspend fun sendFile(jobId: Int, address: String, path: String, uri: Uri) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         var size = 0
@@ -358,11 +356,11 @@ class BackgroundService : Service() {
         }
     }
 
-    suspend fun createFolder(address: String, path: String) = Result.runCatching {
+    suspend fun createFolder(address: String, path: String) = runCatching {
         deviceManager.get(address)?.createFolder(path, CoroutineScope(Dispatchers.IO)) ?: throw ServiceException("Device not found")
     }
 
-    suspend fun uploadResources(jobId: Int, address: String, zipUri: Uri) = Result.runCatching {
+    suspend fun uploadResources(jobId: Int, address: String, zipUri: Uri) = runCatching {
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
 
         runJobThrowing(CoroutineScope(Dispatchers.IO), onStart = {
