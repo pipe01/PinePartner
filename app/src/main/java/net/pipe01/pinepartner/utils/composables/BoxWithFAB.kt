@@ -9,9 +9,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun BoxWithFAB(fab: @Composable (Modifier) -> Unit, content: @Composable () -> Unit) {
+fun BoxWithFAB(
+    modifier: Modifier = Modifier,
+    fab: @Composable (Modifier) -> Unit,
+    content: @Composable () -> Unit,
+) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
     ) {
         content()
 

@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             var service by remember { mutableStateOf<BackgroundService?>(null) }
-            var showBottomBar by remember { mutableStateOf(true) }
+            var showBottomBar by remember { mutableStateOf(false) }
 
             DisposableEffect(Unit) {
                 val conn = object : ServiceConnection {
@@ -66,7 +66,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { padding ->
-                    PermissionsFrame {
+                    PermissionsFrame(
+                        onGotAllPermissions = { showBottomBar = true },
+                    ) {
                         if (service != null) {
                             NavFrame(
                                 modifier = Modifier.padding(padding),

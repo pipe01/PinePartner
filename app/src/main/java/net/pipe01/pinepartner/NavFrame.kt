@@ -38,6 +38,7 @@ import androidx.navigation.navigation
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import net.pipe01.pinepartner.data.AppDatabase
+import net.pipe01.pinepartner.pages.PermissionsPage
 import net.pipe01.pinepartner.pages.devices.AddDevicePage
 import net.pipe01.pinepartner.pages.devices.DFUPage
 import net.pipe01.pinepartner.pages.devices.DevicePage
@@ -91,7 +92,10 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.getRouteTransitionDirectio
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun PermissionsFrame(content: @Composable () -> Unit) {
+fun PermissionsFrame(
+    onGotAllPermissions: () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
     val permissions = mutableListOf(
         ACCESS_FINE_LOCATION,
     )
@@ -106,16 +110,17 @@ fun PermissionsFrame(content: @Composable () -> Unit) {
 
     val state = rememberMultiplePermissionsState(permissions = permissions)
 
-    LaunchedEffect(Unit) {
-        if (!state.allPermissionsGranted) {
-            state.launchMultiplePermissionRequest()
-        }
-    }
-
     if (state.allPermissionsGranted) {
+        LaunchedEffect(Unit) {
+            onGotAllPermissions()
+        }
+
         content()
     } else {
-        Text(text = "Please grant all permissions")
+        PermissionsPage(
+            requestedPermissions = state.permissions,
+            onRequestMissing = { state.launchMultiplePermissionRequest() },
+        )
     }
 }
 
