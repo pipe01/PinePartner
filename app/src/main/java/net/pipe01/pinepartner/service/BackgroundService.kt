@@ -155,7 +155,7 @@ class BackgroundService : Service() {
     }
 
     private fun attachUnhandledExceptionHandler() {
-        if (!BuildConfig.DEBUG || true) {
+        if (!BuildConfig.DEBUG) {
             Thread.setDefaultUncaughtExceptionHandler { _, e -> handleUncaughtException(e) }
         }
     }

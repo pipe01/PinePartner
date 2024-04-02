@@ -261,6 +261,11 @@ fun NavFrame(
                         onShowBottomBar(true)
                         navController.popBackStack()
                     },
+                    onError = {
+                        onShowBottomBar(true)
+                        navController.popBackStack()
+                        errors.add(it)
+                    },
                 )
             }
             composable("${Route.DEVICES}/{address}/files?path={path}") { route ->

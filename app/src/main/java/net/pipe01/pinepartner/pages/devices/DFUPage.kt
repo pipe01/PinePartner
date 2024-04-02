@@ -29,7 +29,6 @@ import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
 import net.pipe01.pinepartner.utils.PineError
-import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Duration
 import kotlin.random.Random
@@ -41,24 +40,14 @@ fun DFUPage(
     onStart: () -> Unit,
     onFinish: () -> Unit,
     onCancel: () -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     var uri by remember { mutableStateOf<Uri?>(null) }
-
-    var showErrorDialog by remember { mutableStateOf<PineError?>(null) }
-
-    if (showErrorDialog != null) {
-        ErrorDialog(
-            error = showErrorDialog!!,
-            onDismissRequest = { showErrorDialog = null },
-        )
-    }
 
     Column(
         modifier = Modifier.padding(horizontal = 16.dp)
     ) {
         Header("Firmware update")
-
-        Spacer(modifier = Modifier.height(48.dp))
 
         if (uri == null) {
             FileChooser { uri = it }
@@ -70,10 +59,7 @@ fun DFUPage(
                 onStart = onStart,
                 onFinish = onFinish,
                 onCancel = onCancel,
-                onError = {
-                    onCancel()
-                    showErrorDialog = it
-                },
+                onError = onError,
             )
         }
     }
