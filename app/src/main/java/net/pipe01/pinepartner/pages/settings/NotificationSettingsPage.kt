@@ -1,10 +1,9 @@
 package net.pipe01.pinepartner.pages.settings
 
-import android.R
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,26 +27,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import com.google.accompanist.drawablepainter.DrawablePainter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.pipe01.pinepartner.data.AppDatabase
+import net.pipe01.pinepartner.utils.AppInfo
+import net.pipe01.pinepartner.utils.AppInfoCache
 
-data class InstalledApp(val name: String, val packageName: String, val icon: Drawable)
+data class InstalledApp(val info: ApplicationInfo, val name: String, val packageName: String)
 
 @SuppressLint("QueryPermissionsNeeded")
 @Composable
 fun NotificationSettingsPage(db: AppDatabase) {
     val context = LocalContext.current
 
-    val installedApps = remember { mutableStateListOf<InstalledApp>() }
+    val installedApps = remember { mutableStateListOf<AppInfo>() }
     val enabledPackages = remember { mutableStateListOf<String>() }
 
     fun setEnabled(packageName: String, enabled: Boolean) {
@@ -73,16 +77,12 @@ fun NotificationSettingsPage(db: AppDatabase) {
             installedApps.addAll(
                 context.packageManager
                     .getInstalledApplications(PackageManager.GET_META_DATA)
-//                    .take(50)
+                    //.take(50)
                     .map {
-                        InstalledApp(
-                            it.loadLabel(context.packageManager).toString(),
-                            it.packageName,
-                            it.loadIcon(context.packageManager)
-                        )
+                        AppInfoCache.getAppInfo(context.packageManager, it.packageName)!!
                     }
-                    .sortedBy { it.name.lowercase() }
-                    .sortedByDescending { enabledPackages.contains(it.packageName) }
+                    .sortedBy { it.label.lowercase() }
+                    .sortedByDescending { enabledPackages.contains(it.fullInfo.packageName) }
             )
         }
     }
@@ -118,7 +118,7 @@ fun NotificationSettingsPage(db: AppDatabase) {
 
             val filteredApps by remember(filter) {
                 derivedStateOf {
-                    installedApps.filter { it.name.contains(filter, ignoreCase = true) }
+                    installedApps.filter { it.label.contains(filter, ignoreCase = true) }
                 }
             }
 
@@ -128,8 +128,8 @@ fun NotificationSettingsPage(db: AppDatabase) {
 
                     AppRow(
                         app = app,
-                        enabled = enabledPackages.contains(app.packageName),
-                        onEnabledChange = { setEnabled(app.packageName, it) },
+                        enabled = enabledPackages.contains(app.fullInfo.packageName),
+                        onEnabledChange = { setEnabled(app.fullInfo.packageName, it) },
                     )
                 }
             }
@@ -138,8 +138,15 @@ fun NotificationSettingsPage(db: AppDatabase) {
 }
 
 @Composable
-fun AppRow(app: InstalledApp, enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
-    val icon = rememberDrawablePainter(drawable = app.icon)
+fun AppRow(app: AppInfo, enabled: Boolean, onEnabledChange: (Boolean) -> Unit) {
+    val context = LocalContext.current
+
+    var icon by remember { mutableStateOf<Painter>(ColorPainter(Color.Transparent)) }
+
+    LaunchedEffect(app) {
+        AppInfoCache.getAppIcon(context.packageManager, app.fullInfo.packageName)
+            ?.let { icon = DrawablePainter(it) }
+    }
 
     Row(
         modifier = Modifier
@@ -150,7 +157,7 @@ fun AppRow(app: InstalledApp, enabled: Boolean, onEnabledChange: (Boolean) -> Un
             modifier = Modifier
                 .size(54.dp),
             painter = icon,
-            contentDescription = "${app.name} icon",
+            contentDescription = "${app.label} icon",
         )
         Column(
             modifier = Modifier
@@ -158,10 +165,10 @@ fun AppRow(app: InstalledApp, enabled: Boolean, onEnabledChange: (Boolean) -> Un
                 .align(Alignment.CenterVertically)
                 .padding(horizontal = 8.dp)
         ) {
-            Text(text = app.name)
+            Text(text = app.label)
             Text(
                 modifier = Modifier.alpha(0.6f),
-                text = app.packageName,
+                text = app.fullInfo.packageName,
                 fontSize = 11.sp,
             )
         }
@@ -176,10 +183,9 @@ fun AppRow(app: InstalledApp, enabled: Boolean, onEnabledChange: (Boolean) -> Un
 @Composable
 fun AppRowPreview() {
     AppRow(
-        app = InstalledApp(
-            "App name",
-            "com.example.app",
-            ContextCompat.getDrawable(LocalContext.current, R.drawable.sym_def_app_icon)!!
+        app = AppInfo(
+            label = "App name",
+            fullInfo = ApplicationInfo(),
         ),
         enabled = true,
         onEnabledChange = {},

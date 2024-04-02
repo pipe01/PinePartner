@@ -12,12 +12,8 @@ import net.pipe01.pinepartner.utils.AppInfoCache
 const val NotificationReceivedAction = "net.pipe01.pinepartner.NOTIFICATION_RECEIVED"
 
 class MyNotificationListener : NotificationListenerService() {
-    private lateinit var appInfoCache: AppInfoCache
-
     override fun onListenerConnected() {
         Log.d("NotificationListener", "Listener connected")
-
-        appInfoCache = AppInfoCache(packageManager)
 
 //        activeNotifications.forEach {
 //            if (shouldSendNotification(it))
@@ -50,7 +46,7 @@ class MyNotificationListener : NotificationListenerService() {
     }
 
     private fun getNotificationBundle(sbn: StatusBarNotification): Bundle {
-        val appInfo = appInfoCache.getAppInfo(sbn.packageName)
+        val appInfo = AppInfoCache.getAppInfo(packageManager, sbn.packageName)
 
         val bundle = Bundle()
         bundle.putString("packageName", sbn.packageName)
