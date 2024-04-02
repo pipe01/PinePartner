@@ -39,7 +39,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.pipe01.pinepartner.BuildConfig
-import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
@@ -48,6 +47,7 @@ import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
+import net.pipe01.pinepartner.utils.composables.HeaderFrame
 
 
 @Composable
@@ -79,52 +79,53 @@ fun DevicesPage(
                 text = { Text(text = "Add new device") },
             )
         }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            ) {
-                Header(text = "Registered Devices")
-
-                if (watches.isEmpty()) {
-                    Text(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .alpha(0.6f),
-                        text = "Press the button below to add a new device.",
-                        fontSize = 20.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                } else {
-                    watches.forEach { watch ->
-                        DeviceItem(
-                            watch = watch,
-                            coroutineScope = coroutineScope,
-                            backgroundService = backgroundService,
-                            onClick = { onDeviceClick(watch.address) },
-                            onRemoveDevice = {
-                                coroutineScope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        db.watchDao().delete(watch.address)
-                                        watches.remove(watch)
-                                        TODO("Tell background service to remove the device")
-                                    }
-                                }
-                            },
-                            onError = onError,
+            HeaderFrame(header = "Devices") {
+                Column(
+                    modifier = Modifier
+                        .padding(it)
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                ) {
+                    if (watches.isEmpty()) {
+                        Text(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                                .alpha(0.6f),
+                            text = "Press the button below to add a new device.",
+                            fontSize = 20.sp,
+                            textAlign = TextAlign.Center,
                         )
-                    }
-                }
-
-                if (BuildConfig.DEBUG) {
-                    Button(onClick = {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            backgroundService.crash()
-                            Log.d("DevicesPage", "Crashed the service")
+                    } else {
+                        watches.forEach { watch ->
+                            DeviceItem(
+                                watch = watch,
+                                coroutineScope = coroutineScope,
+                                backgroundService = backgroundService,
+                                onClick = { onDeviceClick(watch.address) },
+                                onRemoveDevice = {
+                                    coroutineScope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            db.watchDao().delete(watch.address)
+                                            watches.remove(watch)
+                                            TODO("Tell background service to remove the device")
+                                        }
+                                    }
+                                },
+                                onError = onError,
+                            )
                         }
-                    }) {
-                        Text(text = "Crash")
+                    }
+
+                    if (BuildConfig.DEBUG) {
+                        Button(onClick = {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                backgroundService.crash()
+                                Log.d("DevicesPage", "Crashed the service")
+                            }
+                        }) {
+                            Text(text = "Crash")
+                        }
                     }
                 }
             }

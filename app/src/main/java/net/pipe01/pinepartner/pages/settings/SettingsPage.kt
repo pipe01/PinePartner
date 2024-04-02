@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,31 +15,31 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.pipe01.pinepartner.BuildConfig
-import net.pipe01.pinepartner.components.Header
+import net.pipe01.pinepartner.utils.composables.HeaderFrame
 
 @Composable
 fun SettingsPage(
     onNotificationSettings: () -> Unit,
 ) {
-    Column {
-        Header(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            text = "Settings",
-        )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onNotificationSettings() }
-                .padding(16.dp),
+    HeaderFrame("Settings") {
+        Column(
+            modifier = Modifier.fillMaxHeight(),
         ) {
-            Text(text = "Notification settings", fontSize = 18.sp)
-        }
+            Box(
+                modifier = Modifier
+                    .padding(it)
+                    .fillMaxWidth()
+                    .clickable { onNotificationSettings() }
+                    .padding(16.dp),
+            ) {
+                Text(text = "Notification settings", fontSize = 18.sp)
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(text = "Version ${BuildConfig.VERSION_NAME}")
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Text(text = "Version ${BuildConfig.VERSION_NAME}")
+            }
         }
     }
 }
