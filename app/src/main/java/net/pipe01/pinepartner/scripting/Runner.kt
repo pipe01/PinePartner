@@ -37,7 +37,6 @@ import org.mozilla.javascript.NativeConsole
 import org.mozilla.javascript.ScriptableObject
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 data class ScriptDependencies(
     val db: AppDatabase,
@@ -61,7 +60,7 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
 
     private val _hasStarted = AtomicBoolean(false)
 
-    private var eventCounter = AtomicInteger()
+    private var eventCounter = 0
     private val _events = mutableListOf<LogEvent>()
     val events get() = _events.toList()
 
@@ -112,17 +111,21 @@ class Runner(val plugin: Plugin, deps: ScriptDependencies) {
     }
 
     private fun addEvent(severity: EventSeverity, message: String, stackTrace: List<StackTraceEntry>?) {
-        //TODO: Limit number of events stored
-        //TODO: Maybe lock this whole thing to ensure the _events list is ordered correctly
-        _events.add(
-            LogEvent(
-                index = eventCounter.getAndIncrement(),
-                severity = severity,
-                message = message,
-                stackTrace = stackTrace,
-                time = LocalDateTime.now(),
+        synchronized(_events) {
+            while (_events.size > 100) {
+                _events.removeFirst()
+            }
+
+            _events.add(
+                LogEvent(
+                    index = eventCounter++,
+                    severity = severity,
+                    message = message,
+                    stackTrace = stackTrace,
+                    time = LocalDateTime.now(),
+                )
             )
-        )
+        }
     }
 
     fun start() {
