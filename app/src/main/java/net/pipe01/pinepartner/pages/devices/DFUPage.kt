@@ -1,20 +1,30 @@
 package net.pipe01.pinepartner.pages.devices
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -26,9 +36,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.components.Header
+import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
+import net.pipe01.pinepartner.utils.InfiniTimeRelease
 import net.pipe01.pinepartner.utils.PineError
+import net.pipe01.pinepartner.utils.getInfiniTimeReleases
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Duration
 import kotlin.random.Random
@@ -69,7 +82,9 @@ fun DFUPage(
 private fun FileChooser(
     onFileSelected: (Uri) -> Unit,
 ) {
-    Column {
+    Column(
+        modifier = Modifier.scrollable(rememberScrollState(), orientation = Orientation.Vertical),
+    ) {
         val pickPictureLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.GetContent()
         ) { imageUri ->
@@ -78,8 +93,76 @@ private fun FileChooser(
             }
         }
 
+        Text(
+            text = "From device",
+            fontSize = MaterialTheme.typography.headlineSmall.fontSize,
+        )
+
         Button(onClick = { pickPictureLauncher.launch("application/zip") }) {
-            Text(text = "Choose DFU firmware file")
+            Text(text = "Choose file")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "From InfiniTime releases",
+            fontSize = MaterialTheme.typography.headlineSmall.fontSize,
+        )
+
+        InfiniTimeReleases(
+            onChoseRelease = { onFileSelected(it.firmwareUri) },
+            onError = {
+                Log.w("DFUPage", "Failed to fetch InfiniTime releases", it)
+            },
+        )
+    }
+}
+
+@Composable
+private fun InfiniTimeReleases(
+    onChoseRelease: (InfiniTimeRelease) -> Unit,
+    onError: (PineError) -> Unit,
+) {
+    val releases = remember { mutableStateListOf<InfiniTimeRelease>() }
+
+    var showConfirmDialog by remember { mutableStateOf<InfiniTimeRelease?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { getInfiniTimeReleases() }
+            .fold(
+                onSuccess = { releases.addAll(it) },
+                onFailure = { onError(PineError("Failed to fetch InfiniTime releases", it)) }
+            )
+    }
+
+    if (showConfirmDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = null },
+            confirmButton = {
+                TextButton(onClick = { onChoseRelease(showConfirmDialog!!) }) {
+                    Text("Install")
+                }
+            },
+            title = { Text("Install ${showConfirmDialog!!.name}?") },
+        )
+    }
+
+    LoadingStandIn(isLoading = releases.isEmpty()) {
+        if (releases.isEmpty()) {
+            Text("Loading releases...")
+        } else {
+            Column {
+                releases.forEach {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showConfirmDialog = it }
+                            .padding(16.dp),
+                    ) {
+                        Text(it.name)
+                    }
+                }
+            }
         }
     }
 }
@@ -183,9 +266,7 @@ private fun Uploader(
 @Preview(showBackground = true)
 @Composable
 private fun FileChooserPreview() {
-    FileChooser(
-        onFileSelected = { }
-    )
+    FileChooser { }
 }
 
 @Preview(showBackground = true, widthDp = 360)

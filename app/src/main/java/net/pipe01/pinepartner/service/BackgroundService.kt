@@ -40,6 +40,7 @@ import net.pipe01.pinepartner.devices.blefs.deleteFile
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.devices.blefs.listFiles
 import net.pipe01.pinepartner.devices.blefs.writeFile
+import net.pipe01.pinepartner.devices.dfu.flashDFU
 import net.pipe01.pinepartner.devices.externalResources.uploadExternalResources
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.scripting.PluginManager
