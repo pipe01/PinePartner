@@ -38,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.pipe01.pinepartner.BuildConfig
 import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.AppDatabase
@@ -45,6 +46,7 @@ import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 
 
@@ -54,7 +56,7 @@ fun DevicesPage(
     backgroundService: BackgroundService,
     onAddDevice: () -> Unit,
     onDeviceClick: (address: String) -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -114,6 +116,17 @@ fun DevicesPage(
                         )
                     }
                 }
+
+                if (BuildConfig.DEBUG) {
+                    Button(onClick = {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            backgroundService.crash()
+                            Log.d("DevicesPage", "Crashed the service")
+                        }
+                    }) {
+                        Text(text = "Crash")
+                    }
+                }
             }
         }
     }
@@ -127,7 +140,7 @@ private fun DeviceItem(
     backgroundService: BackgroundService,
     onClick: () -> Unit,
     onRemoveDevice: () -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val haptics = LocalHapticFeedback.current
 
@@ -139,7 +152,7 @@ private fun DeviceItem(
         withContext(Dispatchers.Main) {
             while (true) {
                 state = backgroundService.getWatchState(watch.address).onFailure {
-                    onError(Error("Failed to get watch state", it))
+                    onError(PineError("Failed to get watch state", it))
                 }.getOrNull()
 
                 delay(1000)
@@ -213,7 +226,7 @@ private fun DeviceItem(
             Button(onClick = {
                 coroutineScope.launch {
                     backgroundService.disconnectWatch(watch.address).onFailure {
-                        onError(Error("Failed to disconnect watch", it))
+                        onError(PineError("Failed to disconnect watch", it))
                     }
                 }
 

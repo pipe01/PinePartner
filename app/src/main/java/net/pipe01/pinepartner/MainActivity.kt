@@ -1,17 +1,17 @@
 package net.pipe01.pinepartner
 
 import android.annotation.SuppressLint
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Bundle
-import android.os.IBinder
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,12 +19,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import net.pipe01.pinepartner.data.AppDatabase
+import net.pipe01.pinepartner.pages.ConnectingServicePage
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
-import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.service.ServiceHandle
 import net.pipe01.pinepartner.ui.theme.PinePartnerTheme
+import net.pipe01.pinepartner.utils.composables.PluginsDisabledDialog
 
 @SuppressLint("MissingPermission")
 class MainActivity : ComponentActivity() {
+    private val serviceHandle = ServiceHandle(this)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -32,48 +36,66 @@ class MainActivity : ComponentActivity() {
 
         BuiltInPlugins.init(assets)
 
-        val intent = Intent(this, BackgroundService::class.java)
-
         setContent {
             val navController = rememberNavController()
+            val snackbarHostState = remember { SnackbarHostState() }
 
-            var service by remember { mutableStateOf<BackgroundService?>(null) }
             var showBottomBar by remember { mutableStateOf(false) }
 
             DisposableEffect(Unit) {
-                val conn = object : ServiceConnection {
-                    override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                        service = (binder as BackgroundService.ServiceBinder).service
-                    }
-
-                    override fun onServiceDisconnected(name: ComponentName?) {
-                        Log.d("MainActivity", "Service disconnected")
-                    }
-                }
-
-                bindService(intent, conn, 0)
+                serviceHandle.start()
 
                 onDispose {
-                    unbindService(conn)
+                    serviceHandle.unbind()
                 }
             }
 
             PinePartnerTheme {
-                Scaffold(
-                    bottomBar = {
-                        if (showBottomBar) {
-                            BottomBar(navController = navController)
+                if (serviceHandle.service == null) {
+                    ConnectingServicePage(crashed = serviceHandle.hasCrashed)
+                } else {
+                    var showPluginsDisabledDialog by remember { mutableStateOf(false) }
+
+                    if (serviceHandle.pluginsDisabled) {
+                        LaunchedEffect(Unit) {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Plugins have been disabled",
+                                duration = SnackbarDuration.Long,
+                                actionLabel = "Why?",
+                            )
+                            when (result) {
+                                SnackbarResult.ActionPerformed -> {
+                                    showPluginsDisabledDialog = true
+                                }
+                                SnackbarResult.Dismissed -> {
+                                }
+                            }
                         }
                     }
-                ) { padding ->
-                    PermissionsFrame(
-                        onGotAllPermissions = { showBottomBar = true },
-                    ) {
-                        if (service != null) {
+
+                    if (showPluginsDisabledDialog) {
+                        PluginsDisabledDialog(
+                            onDismissRequest = { showPluginsDisabledDialog = false }
+                        )
+                    }
+
+                    Scaffold(
+                        snackbarHost = {
+                            SnackbarHost(hostState = snackbarHostState)
+                        },
+                        bottomBar = {
+                            if (showBottomBar) {
+                                BottomBar(navController = navController)
+                            }
+                        }
+                    ) { padding ->
+                        PermissionsFrame(
+                            onGotAllPermissions = { showBottomBar = true },
+                        ) {
                             NavFrame(
                                 modifier = Modifier.padding(padding),
                                 navController = navController,
-                                backgroundService = service!!,
+                                backgroundService = serviceHandle.service!!,
                                 onShowBottomBar = { showBottomBar = it },
                                 db = db,
                             )
@@ -87,7 +109,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
 
-        val intent = Intent(this, BackgroundService::class.java)
-        startForegroundService(intent)
+        serviceHandle.start()
     }
 }

@@ -51,6 +51,7 @@ import net.pipe01.pinepartner.pages.plugins.PluginsPage
 import net.pipe01.pinepartner.pages.settings.NotificationSettingsPage
 import net.pipe01.pinepartner.pages.settings.SettingsPage
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -132,7 +133,7 @@ fun NavFrame(
     onShowBottomBar: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val errors = remember { mutableStateListOf<Error>() }
+    val errors = remember { mutableStateListOf<PineError>() }
 
     if (errors.isNotEmpty()) {
         val error = errors.first()

@@ -11,18 +11,21 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
+import net.pipe01.pinepartner.utils.PineError
 
 @Composable
 fun ErrorDialog(
-    error: Error,
+    error: PineError,
     onDismissRequest: () -> Unit,
-    onTryAgain: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
     AlertDialog(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = {
+            error.onDismiss?.invoke()
+            onDismissRequest()
+        },
         dismissButton = {
             if (error.cause != null) {
                 TextButton(onClick = {
@@ -34,7 +37,7 @@ fun ErrorDialog(
             }
         },
         confirmButton = {
-            onTryAgain?.let {
+            error.onTryAgain?.let {
                 TextButton(onClick = it) {
                     Text("Try again")
                 }
@@ -57,5 +60,5 @@ fun ErrorDialog(
 @Preview
 @Composable
 fun ErrorDialogPreview() {
-    ErrorDialog(Error("An error occurred", Exception("This is a test exception")), {})
+    ErrorDialog(PineError("An error occurred", Exception("This is a test exception")), {})
 }

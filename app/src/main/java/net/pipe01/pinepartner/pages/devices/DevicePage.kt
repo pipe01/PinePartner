@@ -26,6 +26,7 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Watch
 import net.pipe01.pinepartner.devices.WatchState
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.PineError
 
 @SuppressLint("MissingPermission")
 @Composable
@@ -35,7 +36,7 @@ fun DevicePage(
     backgroundService: BackgroundService,
     onUploadFirmware: () -> Unit,
     onBrowseFiles: () -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -50,12 +51,12 @@ fun DevicePage(
             }
 
             backgroundService.connectWatch(deviceAddress).onFailure {
-                onError(Error("Failed to connect to watch", it))
+                onError(PineError("Failed to connect to watch", it))
                 return@launch
             }
 
             state = backgroundService.getWatchState(deviceAddress).onFailure {
-                onError(Error("Failed to get watch state", it))
+                onError(PineError("Failed to get watch state", it))
             }.getOrNull()
         }
     }
@@ -80,7 +81,7 @@ fun DevicePage(
             Button(onClick = {
                 coroutineScope.launch {
                     backgroundService.sendTestNotification().onFailure {
-                        onError(Error("Failed to send test notification", it))
+                        onError(PineError("Failed to send test notification", it))
                     }
                 }
             }) {

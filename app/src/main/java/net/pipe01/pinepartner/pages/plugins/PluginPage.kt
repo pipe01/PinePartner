@@ -53,6 +53,7 @@ import net.pipe01.pinepartner.scripting.Permission
 import net.pipe01.pinepartner.scripting.StringType
 import net.pipe01.pinepartner.scripting.downloadPlugin
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.PineError
 import java.time.ZoneOffset
 
 @Composable
@@ -62,7 +63,7 @@ fun PluginPage(
     id: String,
     onRemoved: () -> Unit,
     onViewCode: () -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -83,7 +84,7 @@ fun PluginPage(
 
             resp.fold(
                 onSuccess = { events.addAll(it) },
-                onFailure = { onError(Error("Failed to get plugin events", it)) }
+                onFailure = { onError(PineError("Failed to get plugin events", it)) }
             )
 
             delay(1000)
@@ -98,7 +99,7 @@ fun PluginPage(
             onRemove = {
                 coroutineScope.launch {
                     backgroundService.deletePlugin(id).onFailure {
-                        onError(Error("Failed to delete plugin", it))
+                        onError(PineError("Failed to delete plugin", it))
                         return@launch
                     }
 
@@ -121,7 +122,7 @@ fun PluginPage(
                     plugin = newPlugin
 
                     backgroundService.reloadPlugins().onFailure {
-                        onError(Error("Failed to reload plugins", it))
+                        onError(PineError("Failed to reload plugins", it))
                     }
 
                     Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()

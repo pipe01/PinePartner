@@ -22,11 +22,13 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.LocationServices
+import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import net.pipe01.pinepartner.BuildConfig
 import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
@@ -71,7 +73,7 @@ class BackgroundService : Service() {
 
     private var isStarted = false
 
-    val notifReceiver = object : BroadcastReceiver() {
+    private val notifReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             Log.d(TAG, "Received intent ${intent?.action}")
 
@@ -110,6 +112,8 @@ class BackgroundService : Service() {
     }
 
     override fun onCreate() {
+        attachUnhandledExceptionHandler()
+
         super.onCreate()
 
         db = AppDatabase.create(applicationContext)
@@ -150,6 +154,18 @@ class BackgroundService : Service() {
             }
     }
 
+    private fun attachUnhandledExceptionHandler() {
+        if (!BuildConfig.DEBUG || true) {
+            Thread.setDefaultUncaughtExceptionHandler { _, e -> handleUncaughtException(e) }
+        }
+    }
+
+    private fun handleUncaughtException(e: Throwable) {
+        Sentry.captureException(e)
+        Log.e(TAG, "Uncaught exception, stopping service", e)
+        stopSelf()
+    }
+
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!isStarted) {
@@ -158,7 +174,10 @@ class BackgroundService : Service() {
             return START_STICKY
         }
 
-        Log.i(TAG, "Service started")
+        val disablePlugins = intent?.getBooleanExtra("disablePlugins", false) ?: false
+        pluginManager.disableRunning = disablePlugins
+
+        Log.i(TAG, "Service started, disable plugins: $disablePlugins")
 
         val filter = IntentFilter()
         filter.addAction(NotificationReceivedAction)
@@ -167,7 +186,9 @@ class BackgroundService : Service() {
         toggleNotificationListenerService()
 
         CoroutineScope(Dispatchers.Main).launch {
-            pluginManager.reload()
+            if (!disablePlugins) {
+                pluginManager.reload()
+            }
 
             db.watchDao().getAll().forEach {
                 if (it.autoConnect) {
@@ -219,6 +240,10 @@ class BackgroundService : Service() {
     }
 
     class ServiceBinder(val service: BackgroundService) : Binder()
+
+    fun crash() {
+        throw RuntimeException("Crash test")
+    }
 
     suspend fun sendTestNotification() = runCatching {
         for (device in deviceManager.connectedDevices) {

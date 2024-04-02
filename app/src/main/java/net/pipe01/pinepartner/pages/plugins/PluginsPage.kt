@@ -41,6 +41,7 @@ import net.pipe01.pinepartner.data.AppDatabase
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.scripting.BuiltInPlugins
 import net.pipe01.pinepartner.service.BackgroundService
+import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 import net.pipe01.pinepartner.utils.composables.HeaderFrame
 
@@ -50,7 +51,7 @@ fun PluginsPage(
     backgroundService: BackgroundService,
     onPluginClicked: (Plugin) -> Unit,
     onImportPlugin: () -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -102,7 +103,7 @@ private fun PluginList(
     backgroundService: BackgroundService,
     plugins: MutableList<Plugin>,
     onPluginClicked: (Plugin) -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -120,7 +121,7 @@ private fun PluginList(
                         } else {
                             backgroundService.disablePlugin(plugin.id)
                         }.onFailure {
-                            onError(Error("Failed to change plugin state", it))
+                            onError(PineError("Failed to change plugin state", it))
                         }
 
                         val index = plugins.indexOf(plugin)

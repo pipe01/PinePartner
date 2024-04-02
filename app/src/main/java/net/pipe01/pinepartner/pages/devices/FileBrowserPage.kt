@@ -68,6 +68,7 @@ import net.pipe01.pinepartner.devices.blefs.File
 import net.pipe01.pinepartner.devices.blefs.joinPaths
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
+import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.BoxWithFAB
 import net.pipe01.pinepartner.utils.composables.ExpandableFAB
 import net.pipe01.pinepartner.utils.composables.PopupDialog
@@ -81,7 +82,7 @@ fun FileBrowserPage(
     deviceAddress: String,
     path: String,
     onOpenFolder: (String) -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -103,7 +104,7 @@ fun FileBrowserPage(
 
         backgroundService.listFiles(deviceAddress, path).fold(
             onSuccess = { files.addAll(it) },
-            onFailure = { onError(Error("Failed to list files", it)) },
+            onFailure = { onError(PineError("Failed to list files", it)) },
         )
 
         isLoading = false
@@ -133,7 +134,7 @@ fun FileBrowserPage(
                     } else {
                         backgroundService.writeFile(deviceAddress, joinPaths(path, name), ByteArray(0))
                     }.onFailure {
-                        onError(Error("Failed to create ${if (isFolder) "folder" else "file"}", it))
+                        onError(PineError("Failed to create ${if (isFolder) "folder" else "file"}", it))
                     }
                     reload()
                 }
@@ -181,7 +182,7 @@ fun FileBrowserPage(
             },
             onDeleteFile = {
                 backgroundService.deleteFile(deviceAddress, it.fullPath).onFailure {
-                    onError(Error("Failed to delete file", it))
+                    onError(PineError("Failed to delete file", it))
                 }
             },
         )
@@ -468,7 +469,7 @@ private fun UploadDialog(
     isExternalResources: Boolean,
     onDone: () -> Unit,
     onCancel: () -> Unit,
-    onError: (Error) -> Unit,
+    onError: (PineError) -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -489,7 +490,7 @@ private fun UploadDialog(
                 } else {
                     backgroundService.sendFile(jobId, deviceAddress, path, fileUri)
                 }.onFailure {
-                    onError(Error("Failed to upload file", it))
+                    onError(PineError("Failed to upload file", it))
                 }
 
                 onDone()
@@ -530,7 +531,7 @@ private fun UploadDialog(
                         modifier = Modifier.align(Alignment.End),
                         onClick = {
                             backgroundService.cancelTransfer(jobId).onFailure {
-                                onError(Error("Failed to cancel transfer", it))
+                                onError(PineError("Failed to cancel transfer", it))
                             }
                         },
                     ) {

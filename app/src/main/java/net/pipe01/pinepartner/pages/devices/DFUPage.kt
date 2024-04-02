@@ -28,6 +28,7 @@ import kotlinx.coroutines.runBlocking
 import net.pipe01.pinepartner.components.Header
 import net.pipe01.pinepartner.service.BackgroundService
 import net.pipe01.pinepartner.service.TransferProgress
+import net.pipe01.pinepartner.utils.PineError
 import net.pipe01.pinepartner.utils.composables.ErrorDialog
 import net.pipe01.pinepartner.utils.toMinutesSeconds
 import java.time.Duration
@@ -43,7 +44,7 @@ fun DFUPage(
 ) {
     var uri by remember { mutableStateOf<Uri?>(null) }
 
-    var showErrorDialog by remember { mutableStateOf<Error?>(null) }
+    var showErrorDialog by remember { mutableStateOf<PineError?>(null) }
 
     if (showErrorDialog != null) {
         ErrorDialog(
@@ -105,7 +106,7 @@ private fun Uploader(
     onStart: () -> Unit = { },
     onFinish: () -> Unit = { },
     onCancel: () -> Unit = { },
-    onError: (Error) -> Unit = { },
+    onError: (PineError) -> Unit = { },
 ) {
     var progress by remember { mutableStateOf<TransferProgress?>(null) }
 
@@ -119,7 +120,7 @@ private fun Uploader(
 
             launch {
                 backgroundService.startWatchDFU(jobId, address, uri).onFailure {
-                    onError(Error("Failed to do DFU transfer", it))
+                    onError(PineError("Failed to do DFU transfer", it))
                 }
             }
 

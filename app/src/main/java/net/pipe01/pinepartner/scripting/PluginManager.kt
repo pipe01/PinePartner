@@ -12,6 +12,8 @@ class PluginManager(
     private val runningPlugins = mutableMapOf<String, Runner>()
     private val runningMutex = Mutex()
 
+    var disableRunning: Boolean = false
+
     suspend fun reload() {
         val plugins = pluginDao.getAll()
 
@@ -25,6 +27,10 @@ class PluginManager(
     }
 
     private suspend fun start(plugin: Plugin) {
+        if (disableRunning) {
+            return
+        }
+
         runningMutex.withLock {
             runningPlugins[plugin.id]?.let {
                 if (it.plugin.checksum == plugin.checksum) {
