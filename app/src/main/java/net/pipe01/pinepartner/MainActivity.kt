@@ -40,58 +40,59 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
             val snackbarHostState = remember { SnackbarHostState() }
 
-            var showBottomBar by remember { mutableStateOf(false) }
-
-            DisposableEffect(Unit) {
-                serviceHandle.start()
-
-                onDispose {
-                    serviceHandle.unbind()
-                }
-            }
+            var showBottomBar by remember { mutableStateOf(true) }
 
             PinePartnerTheme {
-                if (serviceHandle.service == null) {
-                    ConnectingServicePage(crashed = serviceHandle.hasCrashed)
-                } else {
-                    var showPluginsDisabledDialog by remember { mutableStateOf(false) }
+                PermissionsFrame(
+                    onGotAllPermissions = { },
+                ) {
+                    DisposableEffect(Unit) {
+                        serviceHandle.start()
 
-                    if (serviceHandle.pluginsDisabled) {
-                        LaunchedEffect(Unit) {
-                            val result = snackbarHostState.showSnackbar(
-                                message = "Plugins have been disabled",
-                                duration = SnackbarDuration.Long,
-                                actionLabel = "Why?",
+                        onDispose {
+                            serviceHandle.unbind()
+                        }
+                    }
+
+                    if (serviceHandle.service == null) {
+                        ConnectingServicePage(crashed = serviceHandle.hasCrashed)
+                    } else {
+                        var showPluginsDisabledDialog by remember { mutableStateOf(false) }
+
+                        if (serviceHandle.pluginsDisabled) {
+                            LaunchedEffect(Unit) {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Plugins have been disabled",
+                                    duration = SnackbarDuration.Long,
+                                    actionLabel = "Why?",
+                                )
+                                when (result) {
+                                    SnackbarResult.ActionPerformed -> {
+                                        showPluginsDisabledDialog = true
+                                    }
+
+                                    SnackbarResult.Dismissed -> {
+                                    }
+                                }
+                            }
+                        }
+
+                        if (showPluginsDisabledDialog) {
+                            PluginsDisabledDialog(
+                                onDismissRequest = { showPluginsDisabledDialog = false }
                             )
-                            when (result) {
-                                SnackbarResult.ActionPerformed -> {
-                                    showPluginsDisabledDialog = true
-                                }
-                                SnackbarResult.Dismissed -> {
+                        }
+
+                        Scaffold(
+                            snackbarHost = {
+                                SnackbarHost(hostState = snackbarHostState)
+                            },
+                            bottomBar = {
+                                if (showBottomBar) {
+                                    BottomBar(navController = navController)
                                 }
                             }
-                        }
-                    }
-
-                    if (showPluginsDisabledDialog) {
-                        PluginsDisabledDialog(
-                            onDismissRequest = { showPluginsDisabledDialog = false }
-                        )
-                    }
-
-                    Scaffold(
-                        snackbarHost = {
-                            SnackbarHost(hostState = snackbarHostState)
-                        },
-                        bottomBar = {
-                            if (showBottomBar) {
-                                BottomBar(navController = navController)
-                            }
-                        }
-                    ) { padding ->
-                        PermissionsFrame(
-                            onGotAllPermissions = { showBottomBar = true },
-                        ) {
+                        ) { padding ->
                             NavFrame(
                                 modifier = Modifier.padding(padding),
                                 navController = navController,
