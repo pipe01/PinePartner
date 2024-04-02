@@ -25,7 +25,7 @@ fun ConnectingServicePage(crashed: Boolean) {
         Text(
             modifier = Modifier.padding(top = 16.dp),
             text = when (crashed) {
-                true -> "Background service crashed, restarting it"
+                true -> "Background service crashed, restarting"
                 false -> "Connecting to service"
             }
         )
