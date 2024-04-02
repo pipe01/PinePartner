@@ -3,7 +3,7 @@ package net.pipe01.pinepartner.scripting
 data class Parameter(
     val name: String,
     val type: ParameterType,
-    val defaultValue: String?,
+    val defaultValue: String,
 ) {
     companion object {
         fun parse(str: String): Parameter? {
@@ -18,15 +18,17 @@ data class Parameter(
                 return null
             }
 
+            val type = when (parts[1]) {
+                "string" -> StringType
+                "int" -> IntegerType
+                "boolean" -> BooleanType
+                else -> return null
+            }
+
             return Parameter(
                 name = parts[0],
-                type = when (parts[1]) {
-                    "string" -> StringType
-                    "int" -> IntegerType
-                    "boolean" -> BooleanType
-                    else -> return null
-                },
-                defaultValue = parts.getOrNull(2)
+                type = type,
+                defaultValue = parts.getOrNull(2) ?: type.marshal(type.default)
             )
         }
     }
@@ -44,6 +46,8 @@ data class Parameter(
 }
 
 interface ParameterType {
+    val default: Any
+
     fun validate(value: Any): Boolean
 
     fun marshal(value: Any): String
@@ -51,6 +55,8 @@ interface ParameterType {
 }
 
 object StringType : ParameterType {
+    override val default = ""
+
     override fun validate(value: Any) = value is String
 
     override fun marshal(value: Any) = value as String
@@ -59,6 +65,8 @@ object StringType : ParameterType {
 }
 
 object IntegerType : ParameterType {
+    override val default = 0
+
     override fun validate(value: Any) = value is Int
 
     override fun marshal(value: Any) = value.toString()
@@ -67,6 +75,8 @@ object IntegerType : ParameterType {
 }
 
 object BooleanType : ParameterType {
+    override val default = false
+
     override fun validate(value: Any) = value is Boolean
 
     override fun marshal(value: Any) = value.toString()

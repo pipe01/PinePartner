@@ -209,7 +209,7 @@ private fun Plugin(
 
         Property(name = "Parameters") {
             for (param in plugin.parameters) {
-                val value = paramValues[param.name] ?: param.defaultValue ?: continue
+                val value = paramValues[param.name] ?: param.defaultValue
 
                 Parameter(
                     param = param,
