@@ -43,9 +43,7 @@ class MainActivity : ComponentActivity() {
             var showBottomBar by remember { mutableStateOf(true) }
 
             PinePartnerTheme {
-                PermissionsFrame(
-                    onGotAllPermissions = { },
-                ) {
+                PermissionsFrame {
                     DisposableEffect(Unit) {
                         serviceHandle.start()
 

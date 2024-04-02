@@ -12,6 +12,7 @@ data class InfiniTimeRelease(
     val name: String,
     val resourcesUri: Uri,
     val firmwareUri: Uri,
+    val firmwareSizeBytes: Long,
 )
 
 @Serializable
@@ -24,6 +25,7 @@ private data class GitHubRelease(
 @Serializable
 private data class GitHubAsset(
     val name: String,
+    val size: Long,
     val browser_download_url: String,
 )
 
@@ -38,11 +40,15 @@ suspend fun getInfiniTimeReleases(): List<InfiniTimeRelease> {
     val ghReleases = json.decodeFromString<List<GitHubRelease>>(resp)
 
     return ghReleases.mapNotNull {
+        val resources = it.assets.firstOrNull { it.name.startsWith("infinitime-resources-") } ?: return@mapNotNull null
+        val firmware = it.assets.firstOrNull { it.name.startsWith("pinetime-mcuboot-app-dfu-") } ?: return@mapNotNull null
+
         InfiniTimeRelease(
             version = it.tag_name,
             name = it.name.trim(),
-            resourcesUri = Uri.parse(it.assets.firstOrNull { it.name.startsWith("infinitime-resources-") }?.browser_download_url ?: return@mapNotNull null),
-            firmwareUri = Uri.parse(it.assets.firstOrNull { it.name.startsWith("pinetime-mcuboot-app-dfu-") }?.browser_download_url ?: return@mapNotNull null),
+            resourcesUri = Uri.parse(resources.browser_download_url),
+            firmwareUri = Uri.parse(firmware.browser_download_url),
+            firmwareSizeBytes = firmware.size,
         )
     }
 }
