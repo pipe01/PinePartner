@@ -227,8 +227,8 @@ private fun Plugin(
                 style = MaterialTheme.typography.titleLarge,
             )
 
-            events.reversed().forEach {
-                SelectionContainer {
+            SelectionContainer {
+                events.reversed().forEach {
                     Text(buildAnnotatedString {
                         withStyle(
                             style = SpanStyle(
