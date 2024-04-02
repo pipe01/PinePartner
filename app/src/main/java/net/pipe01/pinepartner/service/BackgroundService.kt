@@ -47,6 +47,7 @@ import net.pipe01.pinepartner.scripting.PluginManager
 import net.pipe01.pinepartner.scripting.ScriptDependencies
 import net.pipe01.pinepartner.utils.runJobThrowing
 import java.io.ByteArrayInputStream
+import java.net.URL
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -282,11 +283,14 @@ class BackgroundService : Service() {
         Log.d(TAG, "Flashing watch $address with $uri")
 
         val device = deviceManager.get(address) ?: throw ServiceException("Device not found")
-
         runJobThrowing(CoroutineScope(Dispatchers.IO), onStart = {
             transferJobs[jobId] = TransferJob(it, TransferProgress(0f, null, null, false))
         }) {
-            contentResolver.openInputStream(uri)!!.use { stream ->
+            if (uri.scheme?.startsWith("http") == true) {
+                URL(uri.toString()).openStream()
+            } else {
+                contentResolver.openInputStream(uri)!!
+            }.use { stream ->
                 device.flashDFU(stream, this) {
                     transferJobs[jobId]?.progress = TransferProgress(
                         it.totalProgress,
