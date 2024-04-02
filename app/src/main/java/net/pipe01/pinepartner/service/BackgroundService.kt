@@ -28,7 +28,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import net.pipe01.pinepartner.BuildConfig
 import net.pipe01.pinepartner.MainActivity
 import net.pipe01.pinepartner.NotificationReceivedAction
 import net.pipe01.pinepartner.R
@@ -114,7 +113,7 @@ class BackgroundService : Service() {
     }
 
     override fun onCreate() {
-        attachUnhandledExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { _, e -> handleUncaughtException(e) }
 
         super.onCreate()
 
@@ -154,12 +153,6 @@ class BackgroundService : Service() {
             .also {
                 startForeground(1, it)
             }
-    }
-
-    private fun attachUnhandledExceptionHandler() {
-        if (!BuildConfig.DEBUG) {
-            Thread.setDefaultUncaughtExceptionHandler { _, e -> handleUncaughtException(e) }
-        }
     }
 
     private fun handleUncaughtException(e: Throwable) {
