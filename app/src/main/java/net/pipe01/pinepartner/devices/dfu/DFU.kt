@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import net.pipe01.pinepartner.devices.DFUManifest
-import net.pipe01.pinepartner.devices.DFUProgress
 import net.pipe01.pinepartner.devices.Device
 import net.pipe01.pinepartner.devices.InfiniTime
 import net.pipe01.pinepartner.utils.unzip

@@ -1,4 +1,4 @@
-package net.pipe01.pinepartner.devices
+package net.pipe01.pinepartner.devices.dfu
 
 import kotlinx.serialization.Serializable
 
