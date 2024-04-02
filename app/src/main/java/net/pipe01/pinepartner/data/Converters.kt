@@ -28,6 +28,6 @@ class Converters {
         return if (value.isBlank())
             emptyList()
         else
-            value.split("\n").mapNotNull { Parameter.parse(it) }
+            value.split("\n").map { Parameter.parse(it) ?: throw IllegalArgumentException("Invalid parameter: $it") }
     }
 }

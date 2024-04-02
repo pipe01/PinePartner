@@ -19,9 +19,9 @@ data class Parameter(
             }
 
             val type = when (parts[1]) {
-                "string" -> StringType
-                "int" -> IntegerType
-                "boolean" -> BooleanType
+                StringType.name -> StringType
+                IntegerType.name -> IntegerType
+                BooleanType.name -> BooleanType
                 else -> return null
             }
 
@@ -34,19 +34,14 @@ data class Parameter(
     }
 
     override fun toString(): String {
-        val typeName = when (type) {
-            StringType -> "string"
-            IntegerType -> "int"
-            BooleanType -> "bool"
-            else -> throw IllegalStateException("Unknown type")
-        }
-
-        return "$name $typeName${if (defaultValue != null) " $defaultValue" else ""}"
+        return "$name ${type.name} $defaultValue"
     }
 }
 
 interface ParameterType {
     val default: Any
+
+    val name: String
 
     fun validate(value: Any): Boolean
 
@@ -56,6 +51,7 @@ interface ParameterType {
 
 object StringType : ParameterType {
     override val default = ""
+    override val name = "string"
 
     override fun validate(value: Any) = value is String
 
@@ -66,6 +62,7 @@ object StringType : ParameterType {
 
 object IntegerType : ParameterType {
     override val default = 0
+    override val name = "int"
 
     override fun validate(value: Any) = value is Int
 
@@ -76,6 +73,7 @@ object IntegerType : ParameterType {
 
 object BooleanType : ParameterType {
     override val default = false
+    override val name = "boolean"
 
     override fun validate(value: Any) = value is Boolean
 

@@ -26,14 +26,7 @@ class Parameters(
         return runBlocking {
             val str = db.pluginDao().getParameterValue(pluginId, p0!!)
 
-            if (str == null) {
-                if (param.defaultValue != null)
-                    param.type.unmarshal(param.defaultValue)
-                else
-                    Undefined.instance
-            } else {
-                param.type.unmarshal(str)
-            }
+            param.type.unmarshal(str ?: param.defaultValue)
         }
     }
 
