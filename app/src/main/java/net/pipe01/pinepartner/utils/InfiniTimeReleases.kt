@@ -3,9 +3,11 @@ package net.pipe01.pinepartner.utils
 import android.net.Uri
 import fuel.Fuel
 import fuel.get
+import kotlinx.io.readString
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import androidx.core.net.toUri
 
 data class InfiniTimeRelease(
     val version: String,
@@ -35,7 +37,7 @@ private val json = Json { ignoreUnknownKeys = true }
 private const val endpoint = "https://pipe01.net/pinepartner-proxy/releases"
 
 suspend fun getInfiniTimeReleases(): List<InfiniTimeRelease> {
-    val resp = Fuel.get(endpoint).body
+    val resp = Fuel.get(endpoint).source.readString()
 
     val ghReleases = json.decodeFromString<List<GitHubRelease>>(resp)
 
@@ -46,8 +48,8 @@ suspend fun getInfiniTimeReleases(): List<InfiniTimeRelease> {
         InfiniTimeRelease(
             version = it.tag_name,
             name = it.name.trim(),
-            resourcesUri = Uri.parse(resources.browser_download_url),
-            firmwareUri = Uri.parse(firmware.browser_download_url),
+            resourcesUri = resources.browser_download_url.toUri(),
+            firmwareUri = firmware.browser_download_url.toUri(),
             firmwareSizeBytes = firmware.size,
         )
     }

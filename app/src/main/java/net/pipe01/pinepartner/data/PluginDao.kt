@@ -29,7 +29,7 @@ interface PluginDao {
     suspend fun setEnabled(id: String, enabled: Boolean)
 
     @Query("SELECT * FROM parametervalue WHERE pluginId = :id")
-    suspend fun getParameterValues(id: String): List<ParameterValue>?
+    suspend fun getParameterValues(id: String): List<ParameterValue>
 
     @Query("SELECT value FROM ParameterValue WHERE pluginId = :pluginId AND paramName = :paramName")
     suspend fun getParameterValue(pluginId: String, paramName: String): String?

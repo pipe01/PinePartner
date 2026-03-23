@@ -4,6 +4,7 @@ import fuel.Fuel
 import fuel.method
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.readString
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Function
 import org.mozilla.javascript.NativeObject
@@ -69,7 +70,7 @@ class HTTPService : ApiScriptableObject(HTTPService::class) {
         return withTimeout(timeout) {
             val resp = Fuel.method(url, method = method, headers = headers)
 
-            resp.body
+            resp.source.readString()
         }
     }
 }
