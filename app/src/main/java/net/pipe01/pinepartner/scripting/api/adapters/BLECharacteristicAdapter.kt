@@ -82,7 +82,7 @@ class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::c
 
     @JSFunction
     fun addEventListener(event: String, cb: Function) {
-        if (event != "newValue") {
+        if (event != "notify") {
             throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid event"))
         }
         if (subscriptionScopes.containsKey(cb)) {
@@ -104,7 +104,7 @@ class BLECharacteristicAdapter : ApiScriptableObject(BLECharacteristicAdapter::c
 
     @JSFunction
     fun removeEventListener(event: String, cb: Function) {
-        if (event != "newValue") {
+        if (event != "notify") {
             throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid event"))
         }
 

@@ -37,7 +37,7 @@ function onWatchConnected(watch) {
         totalLength.write(state.duration);
     }
 
-	events.addEventListener("newValue", val => {
+	events.addEventListener("notify", val => {
 		const arr = new Uint8Array(val);
 
 		switch (arr[0]) {
