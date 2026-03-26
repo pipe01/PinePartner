@@ -57,7 +57,7 @@ class HTTPService : ApiScriptableObject(HTTPService::class) {
             val map = mutableMapOf<String, String>()
 
             for (key in headers.keys) {
-                map[key as String] = headers[key] as String
+                map[key as String] = headers[key].toString()
             }
 
             map
@@ -67,8 +67,10 @@ class HTTPService : ApiScriptableObject(HTTPService::class) {
             if (it as? Double != null) it.toLong() else throw Context.throwAsScriptRuntimeEx(IllegalArgumentException("Invalid timeout"))
         } ?: 5000
 
+        val body = options?.get("body")?.toString()
+
         return withTimeout(timeout) {
-            val resp = Fuel.method(url, method = method, headers = headers)
+            val resp = Fuel.method(url, method = method, headers = headers, body = body)
 
             resp.source.readString()
         }
