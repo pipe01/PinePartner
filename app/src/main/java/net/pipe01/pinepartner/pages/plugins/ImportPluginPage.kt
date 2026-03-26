@@ -29,7 +29,9 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
 import net.pipe01.pinepartner.scripting.Permission
@@ -143,10 +145,16 @@ private fun DataStepPreview() {
 
 @Composable
 private fun DownloadStep(modifier: Modifier, url: String, onDone: (Plugin) -> Unit) {
-    LaunchedEffect(url) {
-        val plugin = downloadPlugin(url)
+    val coroutineScope = rememberCoroutineScope()
 
-        onDone(plugin)
+    LaunchedEffect(url) {
+        coroutineScope.launch {
+            withContext(Dispatchers.IO) {
+                val plugin = downloadPlugin(url)
+
+                onDone(plugin)
+            }
+        }
     }
 
     Box(

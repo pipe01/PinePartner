@@ -38,8 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.pipe01.pinepartner.components.LoadingStandIn
 import net.pipe01.pinepartner.data.Plugin
 import net.pipe01.pinepartner.data.PluginDao
@@ -76,7 +79,7 @@ fun PluginPage(
         plugin = BuiltInPlugins.get(id) ?: pluginDao.getById(id) ?: throw IllegalArgumentException("Plugin not found")
         paramValues = pluginDao
             .getParameterValues(id)
-            ?.associateBy({ it.paramName }, { it.value })
+            .associateBy({ it.paramName }, { it.value })
             ?: emptyMap()
 
         while (true) {
@@ -87,7 +90,7 @@ fun PluginPage(
                 onFailure = { onError(PineError("Failed to get plugin events", it)) }
             )
 
-            delay(1000)
+            delay(200)
         }
     }
 
@@ -108,24 +111,29 @@ fun PluginPage(
             },
             onUpdate = {
                 coroutineScope.launch {
-                    val newPlugin = downloadPlugin(plugin!!.downloadUrl!!).copy(enabled = plugin!!.enabled)
-                    if (newPlugin.id != plugin!!.id) {
-                        Toast.makeText(context, "The plugin's ID has changed, cannot update", Toast.LENGTH_SHORT).show()
-                        return@launch
-                    }
-                    if (newPlugin.checksum == plugin!!.checksum) {
-                        Toast.makeText(context, "Plugin is already up to date", Toast.LENGTH_SHORT).show()
-                        return@launch
-                    }
+                    withContext(Dispatchers.IO) {
+                        val newPlugin = downloadPlugin(plugin!!.downloadUrl!!).copy(enabled = plugin!!.enabled)
 
-                    pluginDao.update(newPlugin)
-                    plugin = newPlugin
+                        MainScope().launch {
+                            if (newPlugin.id != plugin!!.id) {
+                                Toast.makeText(context, "The plugin's ID has changed, cannot update", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            if (newPlugin.checksum == plugin!!.checksum) {
+                                Toast.makeText(context, "Plugin is already up to date", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
 
-                    backgroundService.reloadPlugins().onFailure {
-                        onError(PineError("Failed to reload plugins", it))
+                            pluginDao.update(newPlugin)
+                            plugin = newPlugin
+
+                            backgroundService.reloadPlugins().onFailure {
+                                onError(PineError("Failed to reload plugins", it))
+                            }
+
+                            Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()
+                        }
                     }
-
-                    Toast.makeText(context, "Plugin updated", Toast.LENGTH_SHORT).show()
                 }
             },
             onViewCode = onViewCode,
@@ -228,28 +236,30 @@ private fun Plugin(
             )
 
             SelectionContainer {
-                events.reversed().forEach {
-                    Text(buildAnnotatedString {
-                        withStyle(
-                            style = SpanStyle(
-                                color = when (it.severity) {
-                                    EventSeverity.ERROR, EventSeverity.FATAL -> MaterialTheme.colorScheme.error
-                                    else -> Color.Unspecified
-                                },
-                                fontWeight = FontWeight.Black
-                            )
-                        ) {
-                            append(
-                                when (it.severity) {
-                                    EventSeverity.INFO -> "INFO"
-                                    EventSeverity.WARN -> "WARN"
-                                    EventSeverity.ERROR -> "ERROR"
-                                    EventSeverity.FATAL -> "FATAL"
-                                }
-                            )
-                        }
-                        append(" " + it.message)
-                    })
+                Column {
+                    events.reversed().forEach {
+                        Text(buildAnnotatedString {
+                            withStyle(
+                                style = SpanStyle(
+                                    color = when (it.severity) {
+                                        EventSeverity.ERROR, EventSeverity.FATAL -> MaterialTheme.colorScheme.error
+                                        else -> Color.Unspecified
+                                    },
+                                    fontWeight = FontWeight.Black
+                                )
+                            ) {
+                                append(
+                                    when (it.severity) {
+                                        EventSeverity.INFO -> "INFO"
+                                        EventSeverity.WARN -> "WARN"
+                                        EventSeverity.ERROR -> "ERROR"
+                                        EventSeverity.FATAL -> "FATAL"
+                                    }
+                                )
+                            }
+                            append(" " + it.message)
+                        })
+                    }
                 }
             }
         }
