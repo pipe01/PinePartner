@@ -104,7 +104,7 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
 
     implementation("com.github.kittinunf.fuel:fuel:3.0.0-alpha04")
-    implementation(files("libs/rhino-1.7.15-SNAPSHOT.jar"))
+    implementation(files("libs/rhino-1.9.1.jar"))
 
     implementation("com.github.qawaz:compose-code-editor:2.0.3")
 
