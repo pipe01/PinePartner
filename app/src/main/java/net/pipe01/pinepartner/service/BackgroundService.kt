@@ -21,6 +21,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.content.getSystemService
 import com.google.android.gms.location.LocationServices
 import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
@@ -139,20 +140,35 @@ class BackgroundService : Service() {
 
         createNotificationChannel()
 
+        startForeground(1, buildNotification())
+
+        val notifManager = getSystemService<NotificationManager>()
+        deviceManager.deviceConnected.addListener {
+            notifManager?.notify(1, buildNotification())
+        }
+        deviceManager.deviceDisconnected.addListener {
+            notifManager?.notify(1, buildNotification())
+        }
+    }
+
+    private fun buildNotification(): android.app.Notification {
         val pendingIntent = Intent(this, MainActivity::class.java).let { notificationIntent ->
             PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE)
         }
 
-        NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+        val devices =
+            if (deviceManager.connectedDevices.isEmpty()) "No devices"
+            else if (deviceManager.connectedDevices.size == 1) "1 device"
+            else "${deviceManager.connectedDevices.size} devices"
+
+        return NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
             .setContentTitle("PinePartner")
-            .setContentText("Service running")
+            .setContentText("$devices connected")
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setOnlyAlertOnce(true)
             .build()
-            .also {
-                startForeground(1, it)
-            }
     }
 
     private fun handleUncaughtException(e: Throwable) {
@@ -210,8 +226,7 @@ class BackgroundService : Service() {
             enableVibration(false)
             enableLights(false)
         }
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
+        getSystemService<NotificationManager>()?.createNotificationChannel(channel)
     }
 
     private fun toggleNotificationListenerService() {
