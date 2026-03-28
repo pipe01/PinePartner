@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -53,6 +54,7 @@ import net.pipe01.pinepartner.scripting.IntegerType
 import net.pipe01.pinepartner.scripting.LogEvent
 import net.pipe01.pinepartner.scripting.Parameter
 import net.pipe01.pinepartner.scripting.Permission
+import net.pipe01.pinepartner.scripting.SecretType
 import net.pipe01.pinepartner.scripting.StringType
 import net.pipe01.pinepartner.scripting.downloadPlugin
 import net.pipe01.pinepartner.service.BackgroundService
@@ -217,7 +219,7 @@ private fun Plugin(
 
         Property(name = "Parameters") {
             for (param in plugin.parameters) {
-                val value = paramValues[param.name] ?: param.defaultValue
+                val value = paramValues[param.name] ?: param.defaultValue ?: param.type.marshal(param.type.default)
 
                 Parameter(
                     param = param,
@@ -305,6 +307,13 @@ private fun Parameter(param: Parameter, value: String, onSetValue: (String) -> U
                     value = StringType.unmarshal(value),
                     onValueChange = { onSetValue(StringType.marshal(it)) },
                     singleLine = true,
+                )
+
+                SecretType -> TextField(
+                    value = StringType.unmarshal(value),
+                    onValueChange = { onSetValue(StringType.marshal(it)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
                 )
 
                 IntegerType -> TextField(
